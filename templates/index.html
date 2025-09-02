@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能数据分析系统</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        .summary { background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .columns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        .column-card { background-color: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #007bff; }
+        .column-name { font-weight: bold; font-size: 16px; margin-bottom: 8px; }
+        .column-type { color: #666; font-size: 14px; }
+        .column-stats { font-size: 12px; color: #888; margin-top: 5px; }
+        .btn { display: inline-block; padding: 8px 12px; margin: 2px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; font-size: 12px; }
+        .btn:hover { background-color: #0056b3; }
+        .type-categorical { border-left-color: #28a745; }
+        .type-boolean { border-left-color: #ffc107; }
+        .type-integer { border-left-color: #dc3545; }
+        .type-float { border-left-color: #6f42c1; }
+        .type-datetime { border-left-color: #fd7e14; }
+        .type-text { border-left-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>智能数据分析系统</h1>
+        
+        <div class="upload-form">
+            <h2>上传数据文件</h2>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <div style="margin-bottom: 15px;">
+                    <input type="file" name="file" accept=".xlsx" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <button type="submit" class="btn" style="padding: 8px 15px;">上传Excel文件</button>
+                </div>
+                <p style="color: #666; font-size: 12px;">请上传符合格式的Excel(.xlsx)文件进行分析</p>
+            </form>
+        </div>
+        
+        {% if data_summary %}
+        <div class="summary">
+            <h2>数据概览</h2>
+            <p><strong>总行数:</strong> {{ data_summary['total_rows'] }} ，<strong>总列数:</strong> {{ data_summary['total_columns'] }}</p>
+            {% if data_summary['numeric_columns'] %}
+            <p><strong>数值列:</strong> {{ data_summary['numeric_columns'] | join(', ') }}</p>
+            {% endif %}
+            {% if data_summary['categorical_columns'] %}
+            <p><strong>分类列:</strong> {{ data_summary['categorical_columns'] | join(', ') }}</p>
+            {% endif %}
+            {% if data_summary['boolean_columns'] %}
+            <p><strong>布尔列:</strong> {{ data_summary['boolean_columns'] | join(', ') }}</p>
+            {% endif %}
+            {% if data_summary['datetime_columns'] %}
+            <p><strong>日期列:</strong> {{ data_summary['datetime_columns'] | join(', ') }}</p>
+            {% endif %}
+            {% if data_summary['text_columns'] %}
+            <p><strong>文本列:</strong> {{ data_summary['text_columns'] | join(', ') }}</p>
+            {% endif %}
+        </div>
+        
+        <h2>列详情</h2>
+        <div class="columns-grid">
+            {% for col, info in column_info.items() %}
+            <div class="column-card type-{{ info.type }}">
+                <div class="column-name">{{ col }}</div>
+                <div class="column-type">类型: {{ info.type }}</div>
+                <div class="column-stats">
+                    唯一值: {{ info.unique_count }} ，空值: {{ info.null_count }} ({{ (info.null_ratio * 100) | round(1) }}%)<br>
+                    示例: {{ info.sample_values | join(', ') }}
+                </div>
+                <div>
+                    {% if info.type != 'text' %}
+                    <a href="{{ url_for('column_detail', column_id=info.id) }}" class="btn">查看详情</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

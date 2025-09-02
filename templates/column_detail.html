@@ -1,0 +1,61 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ column }} - 列详情</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .btn { display: inline-block; margin-top: 15px; padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; }
+        .btn:hover { background-color: #0056b3; }
+        .charts { margin-top: 20px; }
+        .chart-link { margin-right: 10px; }
+        ul { margin: 0; padding-left: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>列详情: {{ column }}</h1>
+        <table>
+            <tr><th>属性</th><th>值</th></tr>
+            <tr><td>数据类型</td><td>{{ stats.data_type }}</td></tr>
+            <tr><td>总数据条数</td><td>{{ stats.total_count }}</td></tr>
+            <tr><td>有效数据条数</td><td>{{ stats.valid_count }}</td></tr>
+            <tr><td>空值数</td><td>{{ stats.null_count }}</td></tr>
+            <tr><td>唯一值数</td><td>{{ stats.unique_count }}</td></tr>
+            {% if stats.data_type in ['integer', 'float'] and 'mean' in stats %}
+            <tr><td>均值</td><td>{{ stats.mean }}</td></tr>
+            <tr><td>中位数</td><td>{{ stats.median }}</td></tr>
+            <tr><td>标准差</td><td>{{ stats.std }}</td></tr>
+            <tr><td>最小值</td><td>{{ stats.min }}</td></tr>
+            <tr><td>最大值</td><td>{{ stats.max }}</td></tr>
+            {% elif stats.data_type in ['categorical', 'boolean'] and 'distribution' in stats %}
+            <tr><td>最常见值</td><td>{{ stats.most_common }}</td></tr>
+            <tr><td>最常见值数量</td><td>{{ stats.most_common_count }}</td></tr>
+            <tr><td>分布（前5）</td><td>
+                <ul>
+                {% for key, val in stats.distribution.items() %}
+                    <li>{{ key }}: {{ val }}</li>
+                {% endfor %}
+                </ul>
+            </td></tr>
+            {% endif %}
+        </table>
+        
+        <div class="charts">
+            <h2>推荐图表</h2>
+            {% for ctype, cname in recommended_charts %}
+                <a href="{{ url_for('show_chart', column_id=stats.id, chart_type=ctype) }}" class="btn chart-link">{{ cname }}</a>
+            {% endfor %}
+        </div>
+        
+        <a href="/" class="btn" style="margin-top:20px;">返回首页</a>
+    </div>
+</body>
+</html>

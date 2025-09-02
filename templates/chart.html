@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ column }} - {{ chart_type }} 图表</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
+        h1 { color: #333; margin-bottom: 20px; }
+        .chart-img { max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        table { margin: 20px auto; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: center; }
+        th { background-color: #007bff; color: white; }
+        .btn { display: inline-block; margin: 10px; padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; }
+        .btn:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ column }} - {{ chart_type }} 图表</h1>
+        <img src="data:image/png;base64,{{ chart_data }}" alt="{{ column }} 图表" class="chart-img" />
+        
+        <h2>统计信息</h2>
+        <table>
+            <tr><th>属性</th><th>值</th></tr>
+            <tr><td>数据类型</td><td>{{ stats.data_type }}</td></tr>
+            <tr><td>总数据条数</td><td>{{ stats.total_count }}</td></tr>
+            <tr><td>有效数据条数</td><td>{{ stats.valid_count }}</td></tr>
+            <tr><td>空值数</td><td>{{ stats.null_count }}</td></tr>
+            <tr><td>唯一值数</td><td>{{ stats.unique_count }}</td></tr>
+            {% if stats.data_type in ['integer', 'float'] and 'mean' in stats %}
+            <tr><td>均值</td><td>{{ stats.mean }}</td></tr>
+            <tr><td>中位数</td><td>{{ stats.median }}</td></tr>
+            <tr><td>标准差</td><td>{{ stats.std }}</td></tr>
+            <tr><td>最小值</td><td>{{ stats.min }}</td></tr>
+            <tr><td>最大值</td><td>{{ stats.max }}</td></tr>
+            {% elif stats.data_type in ['categorical', 'boolean'] and 'most_common' in stats %}
+            <tr><td>最常见值</td><td>{{ stats.most_common }}</td></tr>
+            <tr><td>最常见值数量</td><td>{{ stats.most_common_count }}</td></tr>
+            {% endif %}
+        </table>
+        
+        <a href="{{ url_for('column_detail', column_id=stats.id) }}" class="btn">返回列详情</a>
+        <a href="{{ url_for('index') }}" class="btn">返回首页</a>
+    </div>
+</body>
+</html>
