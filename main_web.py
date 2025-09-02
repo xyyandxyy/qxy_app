@@ -9,12 +9,17 @@ import base64
 import matplotlib
 import os
 import uuid
+import sys
+import webbrowser
 from werkzeug.utils import secure_filename
 from matplotlib import font_manager
 matplotlib.use('Agg')
 
+# 导入资源路径处理函数
+from setup import resource_path, setup_app
+
 # 注册阿里巴巴普惠体
-font_path = '/Users/xyy/git_syn/qxy_app/AlibabaPuHuiTi-3-55-Regular.ttf'
+font_path = setup_app()  # 获取字体路径
 font_prop = font_manager.FontProperties(fname=font_path)
 font_manager.fontManager.addfont(font_path)
 alibaba_font = font_manager.FontProperties(fname=font_path).get_name()
@@ -496,9 +501,12 @@ def column_detail(column_id):
 
 
 def main():
-    print("启动Flask服务，请访问 http://127.0.0.1:5000")
+    print("启动智能数据分析系统...")
     print("请通过上传功能上传Excel文件进行分析")
-    app.run(debug=True, host="127.0.0.1", port=5000)
+    # 自动打开默认浏览器
+    webbrowser.open('http://127.0.0.1:5000')
+    # 在生产环境中关闭debug模式
+    app.run(debug=False, host="127.0.0.1", port=5000)
 
 if __name__ == "__main__":
     main()
