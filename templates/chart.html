@@ -6,80 +6,184 @@
     <title>{{ column }} - {{ chart_type }} 图表</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
-        h1 { color: #333; margin-bottom: 20px; }
-        .chart-img { max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        table { margin: 20px auto; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: center; }
-        th { background-color: #007bff; color: white; }
-        .btn { display: inline-block; margin: 10px; padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; cursor: pointer; }
-        .btn:hover { background-color: #0056b3; }
-        .form-input { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; margin-top: 4px; }
-        label { display: block; font-size: 14px; margin-bottom: 4px; }
+        :root {
+            --primary-color: #4a6fa5;
+            --primary-light: #6e8cb2;
+            --primary-dark: #2c4975;
+            --accent-color: #ff9a3c;
+            --accent-light: #ffbf75;
+            --accent-dark: #e67e00;
+            --bg-light: #f8f9fa;
+            --bg-dark: #343a40;
+            --text-primary: #333;
+            --text-secondary: #6c757d;
+            --card-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            --transition-speed: 0.3s;
+        }
+        body { 
+            font-family: "Segoe UI", Arial, sans-serif; 
+            margin: 0; 
+            background-color: #f0f2f5;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        .container { 
+            max-width: 1000px; 
+            margin: 25px auto;
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: var(--card-shadow); 
+            text-align: center;
+        }
+        h1 { 
+            color: var(--primary-color);
+            margin-bottom: 25px;
+            font-weight: 600;
+            font-size: 28px;
+        }
+        .chart-img { 
+            max-width: 100%; 
+            height: auto; 
+            border-radius: 10px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin: 20px 0;
+            border: 1px solid #eaeaea;
+        }
+        table { 
+            margin: 25px auto; 
+            border-collapse: collapse; 
+            box-shadow: var(--card-shadow);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td { 
+            border: 1px solid #eaeaea; 
+            padding: 12px 16px; 
+            text-align: center; 
+        }
+        th { 
+            background-color: var(--primary-color); 
+            color: white;
+            font-weight: 500;
+        }
+        .btn { 
+            display: inline-block; 
+            margin: 12px; 
+            padding: 12px 20px; 
+            background-color: var(--primary-color); 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 8px; 
+            cursor: pointer;
+            font-weight: 500;
+            transition: all var(--transition-speed);
+            border: none;
+        }
+        .btn:hover { 
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .form-input { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #d1d9e6; 
+            border-radius: 6px; 
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
+        }
+        label { 
+            display: block; 
+            font-size: 15px; 
+            margin-bottom: 6px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
         
         /* 悬浮窗口样式 */
         .floating-panel {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 25px;
+            right: 25px;
             z-index: 1000;
         }
         .floating-button {
-            background-color: #007bff;
+            background-color: var(--accent-color);
             color: white;
             border: none;
-            border-radius: 6px;
-            padding: 12px 20px;
+            border-radius: 8px;
+            padding: 14px 22px;
             font-size: 16px;
             cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all var(--transition-speed);
             display: flex;
             align-items: center;
+            font-weight: 500;
         }
         .floating-button:hover {
-            background-color: #0056b3;
-            transform: translateY(-2px);
+            background-color: var(--accent-dark);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2);
         }
         .floating-button i {
-            margin-right: 8px;
-            font-size: 18px;
+            margin-right: 10px;
+            font-size: 20px;
         }
         .custom-panel {
             display: none;
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            padding: 20px;
-            margin-bottom: 15px;
-            max-width: 600px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            padding: 25px;
+            margin-bottom: 20px;
+            max-width: 650px;
             width: 90vw;
             max-height: 80vh;
             overflow-y: auto;
             position: fixed;
-            bottom: 80px;
-            right: 20px;
+            bottom: 90px;
+            right: 25px;
             z-index: 1000;
+            border: 1px solid #eaeaea;
         }
         .custom-panel h3 {
             margin-top: 0;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 10px;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 12px;
+            font-weight: 600;
+            font-size: 22px;
         }
         .custom-panel-close {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 18px;
+            top: 15px;
+            right: 15px;
+            font-size: 22px;
             cursor: pointer;
-            color: #666;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
         }
         .custom-panel-close:hover {
-            color: #333;
+            color: var(--accent-dark);
+            background-color: rgba(0,0,0,0.05);
         }
         .input-group {
-            margin-bottom: 15px;
+            margin-bottom: 18px;
+            padding-bottom: 5px;
         }
     </style>
     <!-- 添加字体图标库 -->

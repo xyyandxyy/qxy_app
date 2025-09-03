@@ -7,47 +7,145 @@
     <title>Excel分析小工具</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1, h2 { color: #333; }
-        .summary { background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
-        .columns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
-        .column-card { background-color: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #007bff; }
-        .column-name { font-weight: bold; font-size: 16px; margin-bottom: 8px; }
-        .column-type { color: #666; font-size: 14px; }
-        .column-stats { font-size: 12px; color: #888; margin-top: 5px; }
-        .btn { display: inline-block; padding: 8px 12px; margin: 2px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; font-size: 12px; }
-        .btn:hover { background-color: #0056b3; }
-        .type-categorical { border-left-color: #28a745; }
-        .type-boolean { border-left-color: #ffc107; }
-        .type-integer { border-left-color: #dc3545; }
-        .type-float { border-left-color: #6f42c1; }
-        .type-datetime { border-left-color: #fd7e14; }
-        .type-text { border-left-color: #6c757d; }
+        :root {
+            --primary-color: #4a6fa5;
+            --primary-light: #6e8cb2;
+            --primary-dark: #2c4975;
+            --accent-color: #ff9a3c;
+            --accent-light: #ffbf75;
+            --accent-dark: #e67e00;
+            --bg-light: #f8f9fa;
+            --bg-dark: #343a40;
+            --text-primary: #333;
+            --text-secondary: #6c757d;
+            --card-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --transition-speed: 0.3s;
+        }
+        body { 
+            font-family: "Segoe UI", Arial, sans-serif; 
+            margin: 0; 
+            background-color: #f0f2f5; 
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 20px auto;
+            background-color: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: var(--card-shadow);
+        }
+        h1, h2 { 
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 28px;
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 10px;
+        }
+        .summary { 
+            background-color: #e8f0fe; 
+            padding: 18px; 
+            border-radius: 8px; 
+            margin-bottom: 25px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 4px solid var(--primary-color);
+        }
+        .columns-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 20px; 
+        }
+        .column-card { 
+            background-color: white; 
+            padding: 18px; 
+            border-radius: 8px; 
+            border-left: 4px solid var(--primary-color); 
+            box-shadow: var(--card-shadow);
+            transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+        }
+        .column-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        .column-name { 
+            font-weight: 600; 
+            font-size: 17px; 
+            margin-bottom: 10px; 
+            color: var(--primary-dark);
+        }
+        .column-type { 
+            color: var(--text-secondary); 
+            font-size: 14px; 
+            background-color: #f0f2f5;
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        .column-stats { 
+            font-size: 13px; 
+            color: var(--text-secondary); 
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+        .btn { 
+            display: inline-block; 
+            padding: 8px 16px; 
+            margin: 3px; 
+            background-color: var(--primary-color); 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 6px; 
+            font-size: 13px;
+            font-weight: 500;
+            transition: all var(--transition-speed);
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover { 
+            background-color: var(--primary-dark); 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+        }
+        .type-categorical { border-left-color: #2e8b57; }
+        .type-boolean { border-left-color: #ff9a3c; }
+        .type-integer { border-left-color: #e74c3c; }
+        .type-float { border-left-color: #8e44ad; }
+        .type-datetime { border-left-color: #f39c12; }
+        .type-text { border-left-color: #7f8c8d; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Excel分析小工具</h1>
-        <div class="alert alert-info" style="background-color: #ef9a509e; border: 1px solid #ffffff; border-radius: 5px; padding: 15px; margin: 15px 0; position: relative;">
-            <div style="display: flex; align-items: center;">
-                <span style="font-size: 24px; color: #efc7b8; margin-right: 15px;">
-                    <i class="fas fa-info-circle"></i>
+        <div class="alert alert-info" style="background-color: #fff8ee; border-left: 4px solid var(--accent-color); border-radius: 8px; padding: 18px; margin: 20px 0; position: relative; box-shadow: var(--card-shadow);">
+            <div style="display: flex; align-items: flex-start;">
+                <span style="font-size: 24px; color: var(--accent-color); margin-right: 16px; margin-top: 2px;">
+                    <i class="fas fa-lightbulb"></i>
                 </span>
                 <div>
-                    <strong style="font-size: 16px; color: #0c5460;">文件格式要求：</strong>
-                    <p style="margin: 5px 0 0; font-size: 14px; color: #0c5460;">Excel第一行必须是<strong>列名称</strong>（如：序号, 姓名, 手机号...），否则请先手动处理文件。</p>
+                    <strong style="font-size: 17px; color: var(--accent-dark); display: block; margin-bottom: 6px;">文件格式要求</strong>
+                    <p style="margin: 0; font-size: 15px; color: var(--text-primary); line-height: 1.5;">
+                        Excel/CSV的第一行必须包含<strong style="color: var(--accent-dark);">列名称</strong>（如：序号, 姓名, 手机号...）。
+                        <br>如文件格式不符，请先进行手动处理。
+                    </p>
                 </div>
             </div>
         </div>
-        <div class="upload-form">
-            <h2>上传Excel/CSV文件</h2>
+        <div class="upload-form" style="background-color: var(--bg-light); border-radius: 8px; padding: 20px; box-shadow: var(--card-shadow); margin-bottom: 30px;">
+            <h2 style="margin-top: 0; color: var(--primary-color);">上传Excel/CSV文件</h2>
             <form action="/upload" method="post" enctype="multipart/form-data">
-                <div style="margin-bottom: 15px;">
-                    <input type="file" name="file" accept=".xlsx,.csv" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <button type="submit" class="btn" style="padding: 8px 15px;">我要分析</button>
+                <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+                    <input type="file" name="file" accept=".xlsx,.csv" required style="padding: 10px; border: 1px solid #d1d9e6; border-radius: 6px; background-color: white; flex: 1; min-width: 250px;">
+                    <button type="submit" class="btn" style="padding: 10px 20px; background-color: var(--accent-color); min-width: 120px;">
+                        <i class="fas fa-chart-line" style="margin-right: 8px;"></i>我要分析
+                    </button>
                 </div>
-                <p style="color: #666; font-size: 12px;">请上传符合格式的Excel(.xlsx)或CSV(.csv)文件进行分析</p>
+                <p style="color: var(--text-secondary); font-size: 13px; margin: 8px 0 0;">请上传符合格式的Excel(.xlsx)或CSV(.csv)文件进行分析</p>
             </form>
         </div>
         
