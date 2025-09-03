@@ -160,7 +160,7 @@ def clean_and_process_data(df):
 def plot_to_base64():
     """将matplotlib图表转换为base64字符串"""
     img = io.BytesIO()
-    plt.savefig(img, format='png', bbox_inches='tight', dpi=150)
+    plt.savefig(img, format='png', bbox_inches='tight', dpi=600)
     img.seek(0)
     plot_url = base64.b64encode(img.getvalue()).decode()
     plt.close()
@@ -335,7 +335,7 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
     
     # 如果需要保存到文件
     if save_path:
-        plt.savefig(save_path, format='png', bbox_inches='tight', dpi=300)
+        plt.savefig(save_path, format='png', bbox_inches='tight', dpi=600)
     
     # 返回base64编码的图像
     plot_url, img_buffer = plot_to_base64()
