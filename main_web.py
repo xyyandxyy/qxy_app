@@ -566,8 +566,9 @@ def upload_file():
         
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        # 生成唯一文件名避免覆盖
-        unique_filename = str(uuid.uuid4()) + '_' + filename
+        # 生成唯一文件名避免覆盖，确保保留文件扩展名
+        base_name, file_ext = os.path.splitext(filename)
+        unique_filename = str(uuid.uuid4()) + file_ext
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
         
         # 确保目录存在
