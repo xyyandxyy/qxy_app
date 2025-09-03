@@ -19,8 +19,8 @@ matplotlib.use('Agg')
 # 导入资源路径处理函数
 from setup import resource_path, setup_app
 
-# 注册阿里巴巴普惠体
-font_path = setup_app()  # 获取字体路径
+# 注册阿里巴巴普惠体并获取上传目录
+font_path, uploads_dir = setup_app()  # 获取字体路径和上传目录
 font_prop = font_manager.FontProperties(fname=font_path)
 font_manager.fontManager.addfont(font_path)
 alibaba_font = font_manager.FontProperties(fname=font_path).get_name()
@@ -36,22 +36,33 @@ sns.set(font=alibaba_font, font_scale=1)
 app = Flask(__name__)
 app.secret_key = str(uuid.uuid4())  # 为了使用flash消息功能
 
-# 确保上传文件夹路径在打包环境中也能正确工作
-try:
-    # 获取应用程序根目录或临时目录
-    base_dir = getattr(sys, '_MEIPASS', os.path.abspath("."))
-    upload_folder = os.path.join(base_dir, 'uploads')
-except Exception:
-    # 如果获取失败，使用相对路径
-    upload_folder = 'uploads'
+# 使用从setup_app函数获取的上传文件夹
+# uploads_dir变量来自setup_app函数的返回值
+if uploads_dir:
+    # 如果成功创建了上传目录，使用它
+    upload_folder = uploads_dir
+    print(f"使用setup_app创建的上传文件夹: {upload_folder}")
+else:
+    # 如果setup_app未能创建目录，尝试创建一个备用目录
+    try:
+        # 首先尝试在当前用户目录创建
+        import tempfile
+        upload_folder = os.path.normpath(os.path.join(tempfile.gettempdir(), 'qxy_app_uploads'))
+        os.makedirs(upload_folder, exist_ok=True)
+        print(f"使用备用临时目录作为上传文件夹: {upload_folder}")
+    except Exception as e:
+        # 实在不行就用相对路径
+        upload_folder = os.path.abspath('uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+        print(f"使用相对路径作为上传文件夹: {upload_folder}")
 
 app.config['UPLOAD_FOLDER'] = upload_folder
 app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'csv'}
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 
-# 创建上传文件夹
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 print(f"上传文件夹配置路径: {app.config['UPLOAD_FOLDER']}")
+print(f"上传文件夹是否存在: {os.path.exists(app.config['UPLOAD_FOLDER'])}")
+print(f"当前工作目录: {os.getcwd()}")
 
 processed_df = None
 column_info = {}
@@ -417,35 +428,82 @@ def load_and_analyze_excel(file_path):
     """加载并分析Excel或CSV文件"""
     global processed_df
     
-    path = Path(file_path)
-    if not path.exists():
-        print(f"文件不存在: {path}")
+    # 标准化路径处理
+    try:
+        # 转换为绝对路径并规范化
+        abs_path = os.path.abspath(file_path)
+        print(f"尝试加载文件：{abs_path}")
+        
+        # 使用pathlib检查文件是否存在
+        path = Path(abs_path)
+        if not path.exists():
+            # 尝试使用os.path再次检查
+            if not os.path.exists(abs_path):
+                print(f"文件不存在: {abs_path}")
+                return False
+            else:
+                print(f"os.path确认文件存在，但Path.exists()失败")
+                # 如果os.path.exists为真但Path.exists为假，使用os.path继续
+                path = abs_path
+    except Exception as e:
+        print(f"路径处理出错: {str(e)}")
         return False
     
     # 根据文件扩展名决定如何读取
-    file_ext = path.suffix.lower()
-    if file_ext == '.xlsx':
-        df = pd.read_excel(path)
-        print(f"成功加载Excel文件: {path.name}")
-    elif file_ext == '.csv':
-        # 尝试用不同编码和分隔符读取CSV
-        try:
-            df = pd.read_csv(path, encoding='utf-8')
-        except UnicodeDecodeError:
-            try:
-                df = pd.read_csv(path, encoding='gbk')
-            except UnicodeDecodeError:
-                df = pd.read_csv(path, encoding='ISO-8859-1')
-        except pd.errors.ParserError:
-            # 尝试其他分隔符
-            try:
-                df = pd.read_csv(path, encoding='utf-8', sep=';')
-            except:
-                df = pd.read_csv(path, encoding='gbk', sep=';')
+    try:
+        if isinstance(path, str):
+            # 如果path是字符串(路径)，获取文件扩展名
+            _, file_ext = os.path.splitext(path)
+            file_ext = file_ext.lower()
+            file_name = os.path.basename(path)
+        else:
+            # 如果path是Path对象
+            file_ext = path.suffix.lower()
+            file_name = path.name
+            
+        # 确保路径是字符串形式，pandas需要
+        path_str = str(path)
         
-        print(f"成功加载CSV文件: {path.name}")
-    else:
-        print(f"不支持的文件类型: {file_ext}")
+        print(f"准备读取文件: {path_str}，类型: {file_ext}")
+        
+        if file_ext == '.xlsx':
+            try:
+                df = pd.read_excel(path_str)
+                print(f"成功加载Excel文件: {file_name}")
+            except Exception as e:
+                print(f"读取Excel文件失败: {str(e)}")
+                return False
+                
+        elif file_ext == '.csv':
+            # 尝试用不同编码和分隔符读取CSV
+            success = False
+            errors = []
+            
+            # 尝试不同编码和分隔符的组合
+            for encoding in ['utf-8', 'gbk', 'ISO-8859-1']:
+                for sep in [',', ';', '\t']:
+                    try:
+                        df = pd.read_csv(path_str, encoding=encoding, sep=sep)
+                        print(f"成功加载CSV文件: {file_name} (编码: {encoding}, 分隔符: {sep})")
+                        success = True
+                        break
+                    except Exception as e:
+                        errors.append(f"尝试 {encoding}/{sep} 失败: {str(e)}")
+                        continue
+                
+                if success:
+                    break
+            
+            if not success:
+                print("所有尝试都失败了:")
+                for err in errors:
+                    print(f"- {err}")
+                return False
+        else:
+            print(f"不支持的文件类型: {file_ext}")
+            return False
+    except Exception as e:
+        print(f"处理文件扩展名时出错: {str(e)}")
         return False
     print(f"原始数据形状: {df.shape}")
     
@@ -511,10 +569,24 @@ def upload_file():
         # 生成唯一文件名避免覆盖
         unique_filename = str(uuid.uuid4()) + '_' + filename
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        
+        # 确保目录存在
+        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
+        
+        # 打印保存路径以便调试
+        print(f"保存文件到：{os.path.abspath(file_path)}")
+        
+        # 保存文件
         file.save(file_path)
         
         # 记录当前文件路径
         current_file = file_path
+        
+        # 验证文件是否成功保存
+        if os.path.exists(file_path):
+            print(f"文件成功保存：{file_path}")
+        else:
+            print(f"文件保存失败，路径不存在：{file_path}")
         
         # 加载并分析上传的Excel文件
         success = load_and_analyze_excel(file_path)
