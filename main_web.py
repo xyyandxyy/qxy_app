@@ -857,7 +857,7 @@ def main():
     # 自动打开默认浏览器
     webbrowser.open('http://127.0.0.1:5000')
     # 在生产环境中关闭debug模式
-    app.run(debug=False, host="127.0.0.1", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5000)
 
 if __name__ == "__main__":
     main()
