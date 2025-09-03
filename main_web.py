@@ -36,7 +36,7 @@ sns.set(font=alibaba_font, font_scale=1)
 app = Flask(__name__)
 app.secret_key = str(uuid.uuid4())  # 为了使用flash消息功能
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['ALLOWED_EXTENSIONS'] = {'xlsx'}
+app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'csv'}
 
 # 创建上传文件夹
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -376,7 +376,7 @@ def get_column_statistics(column):
     return stats
 
 def load_and_analyze_excel(file_path):
-    """加载并分析Excel文件"""
+    """加载并分析Excel或CSV文件"""
     global processed_df
     
     path = Path(file_path)
@@ -384,9 +384,31 @@ def load_and_analyze_excel(file_path):
         print(f"文件不存在: {path}")
         return False
     
-    df = pd.read_excel(path)
-    
-    print(f"成功加载Excel文件: {path.name}")
+    # 根据文件扩展名决定如何读取
+    file_ext = path.suffix.lower()
+    if file_ext == '.xlsx':
+        df = pd.read_excel(path)
+        print(f"成功加载Excel文件: {path.name}")
+    elif file_ext == '.csv':
+        # 尝试用不同编码和分隔符读取CSV
+        try:
+            df = pd.read_csv(path, encoding='utf-8')
+        except UnicodeDecodeError:
+            try:
+                df = pd.read_csv(path, encoding='gbk')
+            except UnicodeDecodeError:
+                df = pd.read_csv(path, encoding='ISO-8859-1')
+        except pd.errors.ParserError:
+            # 尝试其他分隔符
+            try:
+                df = pd.read_csv(path, encoding='utf-8', sep=';')
+            except:
+                df = pd.read_csv(path, encoding='gbk', sep=';')
+        
+        print(f"成功加载CSV文件: {path.name}")
+    else:
+        print(f"不支持的文件类型: {file_ext}")
+        return False
     print(f"原始数据形状: {df.shape}")
     
     # 分析数据结构
@@ -451,7 +473,7 @@ def upload_file():
             flash('文件分析失败，请确保文件格式正确')
             return redirect(request.url)
     else:
-        flash('不支持的文件类型，请上传.xlsx文件')
+        flash('不支持的文件类型，请上传.xlsx或.csv文件')
         return redirect(request.url)
 
 @app.route('/chart/<int:column_id>/<chart_type>')
