@@ -201,7 +201,8 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
     plt.figure(figsize=(10, 6))
     
     # 使用自定义配色方案
-    if chart_color:
+    # 只有当明确提供了chart_color且不是None或空字符串时才使用单一颜色
+    if chart_color and chart_color.strip():
         colors = [chart_color]
     else:
         colors = sns.color_palette("husl", 8)
@@ -224,7 +225,7 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
                    autopct=autopct_format(value_counts.values),
                    colors=colors, shadow=True, startangle=90,
                    wedgeprops={'edgecolor': 'w', 'linewidth': 1})
-            plt.title(chart_title if chart_title else f'{column} - 饼图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.title(chart_title if chart_title and chart_title.strip() else f'{column} - 饼图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
             
         elif chart_type == 'bar':
             # 使用seaborn的barplot
@@ -237,9 +238,9 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
                 ax.text(p.get_x() + p.get_width()/2., height + 0.1,
                         f'{int(height)}', ha='center', fontweight='bold')
             
-            plt.title(chart_title if chart_title else f'{column} - 柱状图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
-            plt.ylabel(y_label if y_label else '数量', fontsize=12, fontproperties=font_prop)
-            plt.xlabel(x_label if x_label else column, fontsize=12, fontproperties=font_prop)
+            plt.title(chart_title if chart_title and chart_title.strip() else f'{column} - 柱状图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.ylabel(y_label if y_label and y_label.strip() else '数量', fontsize=12, fontproperties=font_prop)
+            plt.xlabel(x_label if x_label and x_label.strip() else column, fontsize=12, fontproperties=font_prop)
     
     elif col_info['type'] in ['integer', 'float']:
         if chart_type == 'histogram':
@@ -250,25 +251,27 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
             # 保存bin数据供后续使用
             hist_data = {'counts': counts, 'bins': bins}
             
-            plt.title(chart_title if chart_title else f'{column} - 直方图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
-            plt.xlabel(x_label if x_label else column, fontsize=12, fontproperties=font_prop)
-            plt.ylabel(y_label if y_label else '频次', fontsize=12, fontproperties=font_prop)
+            plt.title(chart_title if chart_title and chart_title.strip() else f'{column} - 直方图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.xlabel(x_label if x_label and x_label.strip() else column, fontsize=12, fontproperties=font_prop)
+            plt.ylabel(y_label if y_label and y_label.strip() else '频次', fontsize=12, fontproperties=font_prop)
             
         elif chart_type == 'line':
             sorted_data = data.sort_values()
             # 使用seaborn的lineplot，使用传入的自定义参数
-            # 设置默认值和自定义值
-            m_style = marker_style if marker_style else 'o'
-            m_size = int(marker_size) if marker_size else 5
-            m_alpha = float(marker_alpha) if marker_alpha else 0.9
-            line_color = chart_color if chart_color else colors[1]
+            # 设置默认值和自定义值 - 只在提供了有效值时才使用自定义值
+            m_style = marker_style if marker_style and marker_style != 'None' else 'o'
+            m_size = int(marker_size) if marker_size and marker_size.strip() else 5
+            m_alpha = float(marker_alpha) if marker_alpha and marker_alpha.strip() else 0.9
+            
+            # 如果提供了有效的自定义颜色就使用它，否则使用默认调色板中的颜色
+            line_color = chart_color if chart_color and chart_color.strip() else colors[1]
             
             ax = sns.lineplot(x=range(len(sorted_data)), y=sorted_data.values, 
                             marker=m_style, markersize=m_size, alpha=m_alpha, 
                             color=line_color)
-            plt.title(chart_title if chart_title else f'{column} - 折线图', fontsize=16, fontweight='bold', fontproperties=font_prop)
-            plt.xlabel(x_label if x_label else '索引', fontsize=12, fontproperties=font_prop)
-            plt.ylabel(y_label if y_label else column, fontsize=12, fontproperties=font_prop)
+            plt.title(chart_title if chart_title and chart_title.strip() else f'{column} - 折线图', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.xlabel(x_label if x_label and x_label.strip() else '索引', fontsize=12, fontproperties=font_prop)
+            plt.ylabel(y_label if y_label and y_label.strip() else column, fontsize=12, fontproperties=font_prop)
             
         elif chart_type == 'bar':
             # 对于数值类型的柱状图，显示值的分布
@@ -284,9 +287,9 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
                 ax.text(p.get_x() + p.get_width()/2., height + 0.1,
                         f'{int(height)}', ha='center', fontweight='bold')
             
-            plt.title(chart_title if chart_title else f'{column} - 值分布柱状图', fontsize=16, fontweight='bold', fontproperties=font_prop)
-            plt.xlabel(x_label if x_label else column, fontsize=12, fontproperties=font_prop)
-            plt.ylabel(y_label if y_label else '频次', fontsize=12, fontproperties=font_prop)
+            plt.title(chart_title if chart_title and chart_title.strip() else f'{column} - 值分布柱状图', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.xlabel(x_label if x_label and x_label.strip() else column, fontsize=12, fontproperties=font_prop)
+            plt.ylabel(y_label if y_label and y_label.strip() else '频次', fontsize=12, fontproperties=font_prop)
     
     # 添加网格线美化
     plt.grid(True, linestyle='--', alpha=0.7)
@@ -295,17 +298,29 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
     ax = plt.gca()
     # 设置纵轴步长
     if y_step_size and y_step_size.strip() and col_info['type'] in ['integer', 'float']:
-        ax.yaxis.set_major_locator(plt.MultipleLocator(float(y_step_size)))
+        try:
+            ax.yaxis.set_major_locator(plt.MultipleLocator(float(y_step_size)))
+        except (ValueError, TypeError):
+            # 忽略无效值
+            pass
     # 设置横轴步长
     if x_step_size and x_step_size.strip() and chart_type != 'pie' and col_info['type'] in ['integer', 'float']:
-        ax.xaxis.set_major_locator(plt.MultipleLocator(float(x_step_size)))
+        try:
+            ax.xaxis.set_major_locator(plt.MultipleLocator(float(x_step_size)))
+        except (ValueError, TypeError):
+            # 忽略无效值
+            pass
     
     # 安全转换值，检查None和空字符串
     def safe_float(value):
         if value is None or value == '' or not value.strip():
             return None
-        return float(value)
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
     
+    # 只有当用户明确提供了有效值时才应用这些参数
     y_min_float = safe_float(y_min)
     y_max_float = safe_float(y_max)
     x_min_float = safe_float(x_min)
@@ -855,9 +870,9 @@ def main():
     print("启动智能数据分析系统...")
     print("请通过上传功能上传Excel文件进行分析")
     # 自动打开默认浏览器
-    webbrowser.open('http://127.0.0.1:5000')
+    webbrowser.open('http://127.0.0.1:5001')
     # 在生产环境中关闭debug模式
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5001)
 
 if __name__ == "__main__":
     main()

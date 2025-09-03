@@ -271,7 +271,13 @@
                 
                 <div class="input-group">
                     <label for="chart_color">图表颜色：</label>
-                    <input type="color" id="chart_color" name="chart_color" class="form-input" value="{{ chart_color or '#1f77b4' }}">
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" id="use_chart_color" style="margin-right: 8px;" {{ 'checked' if chart_color else '' }}>
+                        <input type="color" id="chart_color" class="form-input" value="{{ chart_color or '#1f77b4' }}">
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">
+                        注意：勾选并选择颜色将使用单色，不勾选则使用默认彩色方案
+                    </div>
                 </div>
 
                 {% if chart_type == 'line' %}
@@ -315,6 +321,7 @@
             </div>
             
             <button type="submit" class="btn">应用设置</button>
+            <button type="button" class="btn" style="background-color: var(--accent-color);" onclick="resetChart()">恢复默认图表</button>
         </form>
     </div>
     
@@ -322,11 +329,31 @@
         // 页面加载时运行表单过滤
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('chartForm');
+            const useChartColorCheckbox = document.getElementById('use_chart_color');
+            const chartColorInput = document.getElementById('chart_color');
+            
+            // 初始状态设置
+            updateChartColorInput();
+            
+            // 监听复选框变化
+            useChartColorCheckbox.addEventListener('change', updateChartColorInput);
+            
+            // 更新颜色输入框状态
+            function updateChartColorInput() {
+                if (useChartColorCheckbox.checked) {
+                    chartColorInput.name = 'chart_color'; // 添加name属性使其可以提交
+                } else {
+                    chartColorInput.name = ''; // 移除name属性使其不被提交
+                }
+            }
             
             // 表单提交前的事件处理
             form.addEventListener('submit', function(event) {
+                // 更新颜色输入框状态
+                updateChartColorInput();
+                
                 // 遍历所有输入字段
-                const inputs = form.querySelectorAll('input[type=text], input[type=number]');
+                const inputs = form.querySelectorAll('input[type=text], input[type=number], select, input[type=range]');
                 inputs.forEach(function(input) {
                     // 如果输入字段为空，移除它的name属性以使其不被提交
                     if (!input.value || input.value.trim() === '') {
@@ -366,13 +393,27 @@
         function downloadChart() {
             // 获取当前表单的所有参数
             const form = document.getElementById('chartForm');
-            const formData = new FormData(form);
             const params = new URLSearchParams();
             
-            for (const pair of formData.entries()) {
-                // 只添加有值的参数
-                if (pair[1] && pair[1].trim() !== '') {
-                    params.append(pair[0], pair[1]);
+            // 更新颜色输入框状态，确保与表单提交行为一致
+            const useChartColorCheckbox = document.getElementById('use_chart_color');
+            const chartColorInput = document.getElementById('chart_color');
+            if (useChartColorCheckbox.checked && chartColorInput.value) {
+                params.append('chart_color', chartColorInput.value);
+            }
+            
+            // 遍历表单数据
+            const inputs = form.querySelectorAll('input[type=text], input[type=number], select, input[type=range], input[type=checkbox]:not(#use_chart_color)');
+            for (const input of inputs) {
+                // 检查输入字段是否有值和名称
+                if (input.name && input.name.trim() !== '') {
+                    if (input.type === 'checkbox') {
+                        if (input.checked) {
+                            params.append(input.name, input.value);
+                        }
+                    } else if (input.value && input.value.trim() !== '') {
+                        params.append(input.name, input.value);
+                    }
                 }
             }
             
@@ -381,6 +422,11 @@
             
             // 重定向到下载URL
             window.location.href = downloadUrl;
+        }
+        
+        function resetChart() {
+            // 重定向到无参数的原始图表URL
+            window.location.href = '{{ url_for("show_chart", column_id=stats.id, chart_type=chart_type) }}';
         }
     </script>
 </body>
