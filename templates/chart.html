@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -13,55 +12,214 @@
         table { margin: 20px auto; border-collapse: collapse; }
         th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: center; }
         th { background-color: #007bff; color: white; }
-        .btn { display: inline-block; margin: 10px; padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; }
+        .btn { display: inline-block; margin: 10px; padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; cursor: pointer; }
         .btn:hover { background-color: #0056b3; }
+        .form-input { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; margin-top: 4px; }
+        label { display: block; font-size: 14px; margin-bottom: 4px; }
+        
+        /* 悬浮窗口样式 */
+        .floating-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .floating-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+        .floating-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .floating-button i {
+            margin-right: 8px;
+            font-size: 18px;
+        }
+        .custom-panel {
+            display: none;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            padding: 20px;
+            margin-bottom: 15px;
+            max-width: 600px;
+            width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .custom-panel h3 {
+            margin-top: 0;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .custom-panel-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            color: #666;
+        }
+        .custom-panel-close:hover {
+            color: #333;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
     </style>
+    <!-- 添加字体图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <h1>{{ column }} - {{ chart_type }} 图表</h1>
         
-        {% if stats.data_type in ['integer', 'float'] %}
-        <div style="margin: 10px 0 20px 0;">
-            <form method="get" action="{{ url_for('show_chart', column_id=stats.id, chart_type=chart_type) }}">
-                <label for="exclude_zeros" style="display: inline-block; margin-right: 10px;">
-                    <input type="checkbox" id="exclude_zeros" name="exclude_zeros" value="true" {% if exclude_zeros %}checked{% endif %} onchange="this.form.submit();">
-                    不包含数值为0的数据
-                </label>
-            </form>
-        </div>
-        {% endif %}
-        
         <img src="data:image/png;base64,{{ chart_data }}" alt="{{ column }} 图表" class="chart-img" />
-        
-        <h2>统计信息</h2>
-        <table>
-            <tr><th>属性</th><th>值</th></tr>
-            <tr><td>数据类型</td><td>{{ stats.data_type }}</td></tr>
-            <tr><td>总数据条数</td><td>{{ stats.total_count }}</td></tr>
-            <tr><td>有效数据条数</td><td>{{ stats.valid_count }}</td></tr>
-            <tr><td>空值数</td><td>{{ stats.null_count }}</td></tr>
-            <tr><td>唯一值数</td><td>{{ stats.unique_count }}</td></tr>
-            {% if stats.data_type in ['integer', 'float'] and 'mean' in stats %}
-            <tr><td>均值</td><td>{{ stats.mean }}</td></tr>
-            <tr><td>中位数</td><td>{{ stats.median }}</td></tr>
-            <tr><td>标准差</td><td>{{ stats.std }}</td></tr>
-            <tr><td>最小值</td><td>{{ stats.min }}</td></tr>
-            <tr><td>最大值</td><td>{{ stats.max }}</td></tr>
-            {% elif stats.data_type in ['categorical', 'boolean'] and 'most_common' in stats %}
-            <tr><td>最常见值</td><td>{{ stats.most_common }}</td></tr>
-            <tr><td>最常见值数量</td><td>{{ stats.most_common_count }}</td></tr>
-            {% endif %}
-        </table>
         
         <a href="{{ url_for('column_detail', column_id=stats.id) }}" class="btn">返回列详情</a>
         <a href="{{ url_for('index') }}" class="btn">返回首页</a>
-        
-        {% if stats.data_type in ['integer', 'float'] %}
-        <a href="{{ url_for('download_chart', column_id=stats.id, chart_type=chart_type, exclude_zeros=exclude_zeros) }}" class="btn">下载图表</a>
-        {% else %}
-        <a href="{{ url_for('download_chart', column_id=stats.id, chart_type=chart_type) }}" class="btn">下载图表</a>
-        {% endif %}
+        <button onclick="downloadChart()" class="btn">下载图表</button>
     </div>
+
+    <!-- 悬浮DIY按钮 -->
+    <div class="floating-panel">
+        <button id="showCustomPanel" class="floating-button">
+            <i class="fas fa-paint-brush"></i> 我要DIY一下图表
+        </button>
+    </div>
+
+    <!-- 悬浮自定义面板 -->
+    <div id="customPanel" class="custom-panel">
+        <span class="custom-panel-close" onclick="closeCustomPanel()">&times;</span>
+        <h3>图表自定义选项</h3>
+        <form method="get" action="{{ url_for('show_chart', column_id=stats.id, chart_type=chart_type) }}" id="chartForm">
+            {% if stats.data_type in ['integer', 'float'] %}
+            <div class="input-group">
+                <label for="exclude_zeros" style="display: inline-block; margin-right: 10px;">
+                    <input type="checkbox" id="exclude_zeros" name="exclude_zeros" value="true" {% if exclude_zeros %}checked{% endif %}>
+                    不包含数值为0的数据
+                </label>
+            </div>
+            {% endif %}
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                <div class="input-group">
+                    <label for="chart_title">图表标题：</label>
+                    <input type="text" id="chart_title" name="chart_title" class="form-input" value="{{ chart_title or '' }}" placeholder="默认为{{ column }} - {{ chart_type }}图">
+                </div>
+                
+                <div class="input-group">
+                    <label for="y_label">纵轴名称：</label>
+                    <input type="text" id="y_label" name="y_label" class="form-input" value="{{ y_label or '' }}" placeholder="默认根据图表类型自动选择">
+                </div>
+                
+                <div class="input-group">
+                    <label for="x_label">横轴名称：</label>
+                    <input type="text" id="x_label" name="x_label" class="form-input" value="{{ x_label or '' }}" placeholder="默认为列名或索引">
+                </div>
+                
+                {% if stats.data_type in ['integer', 'float'] %}
+                <div class="input-group">
+                    <label for="y_step_size">纵轴步长：</label>
+                    <input type="number" id="y_step_size" name="y_step_size" step="any" class="form-input" value="{{ y_step_size or '' }}" placeholder="默认自动">
+                </div>
+
+                <div class="input-group">
+                    <label for="x_step_size">横轴步长：</label>
+                    <input type="number" id="x_step_size" name="x_step_size" step="any" class="form-input" value="{{ x_step_size or '' }}" placeholder="默认自动">
+                </div>
+                
+                <div class="input-group">
+                    <label for="y_min">纵轴最小值：</label>
+                    <input type="number" id="y_min" name="y_min" step="any" class="form-input" value="{{ y_min or '' }}" placeholder="默认自动">
+                </div>
+                
+                <div class="input-group">
+                    <label for="y_max">纵轴最大值：</label>
+                    <input type="number" id="y_max" name="y_max" step="any" class="form-input" value="{{ y_max or '' }}" placeholder="默认自动">
+                </div>
+                
+                <div class="input-group">
+                    <label for="x_min">横轴最小值：</label>
+                    <input type="number" id="x_min" name="x_min" step="any" class="form-input" value="{{ x_min or '' }}" placeholder="默认自动">
+                </div>
+                
+                <div class="input-group">
+                    <label for="x_max">横轴最大值：</label>
+                    <input type="number" id="x_max" name="x_max" step="any" class="form-input" value="{{ x_max or '' }}" placeholder="默认自动">
+                </div>
+                {% endif %}
+                
+                <div class="input-group">
+                    <label for="chart_color">图表颜色：</label>
+                    <input type="color" id="chart_color" name="chart_color" class="form-input" value="{{ chart_color or '#1f77b4' }}">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn">应用设置</button>
+        </form>
+    </div>
+    
+    <script>
+        // 页面加载时运行表单过滤
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('chartForm');
+            
+            // 表单提交前的事件处理
+            form.addEventListener('submit', function(event) {
+                // 遍历所有输入字段
+                const inputs = form.querySelectorAll('input[type=text], input[type=number]');
+                inputs.forEach(function(input) {
+                    // 如果输入字段为空，移除它的name属性以使其不被提交
+                    if (!input.value || input.value.trim() === '') {
+                        input.name = '';
+                    }
+                });
+            });
+
+            // 打开自定义面板按钮
+            document.getElementById('showCustomPanel').addEventListener('click', function() {
+                document.getElementById('customPanel').style.display = 'block';
+            });
+        });
+        
+        function closeCustomPanel() {
+            document.getElementById('customPanel').style.display = 'none';
+        }
+        
+        function downloadChart() {
+            // 获取当前表单的所有参数
+            const form = document.getElementById('chartForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams();
+            
+            for (const pair of formData.entries()) {
+                // 只添加有值的参数
+                if (pair[1] && pair[1].trim() !== '') {
+                    params.append(pair[0], pair[1]);
+                }
+            }
+            
+            // 构建下载URL
+            const downloadUrl = '{{ url_for("download_chart", column_id=stats.id, chart_type=chart_type) }}' + '?' + params.toString();
+            
+            // 重定向到下载URL
+            window.location.href = downloadUrl;
+        }
+    </script>
 </body>
 </html>

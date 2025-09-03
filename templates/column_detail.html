@@ -5,18 +5,68 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ column }} - 列详情</title>
+    <!-- 引入SheetJS库，用于生成Excel文件 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .container { 
+            max-width: 95%; /* 增加容器宽度 */
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        @media (min-width: 1600px) {
+            .container {
+                max-width: 1500px; /* 在大屏幕上限制最大宽度 */
+            }
+        }
         h1 { color: #333; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left;
+            white-space: nowrap; /* 防止文本换行 */
+            max-width: 300px; /* 设置最大宽度 */
+            overflow: hidden;
+            text-overflow: ellipsis; /* 超出显示省略号 */
+        }
         th { background-color: #007bff; color: white; }
+        
+        /* 高亮关键列样式 */
+        .highlight-column {
+            background-color: #ffffd0 !important; /* 浅黄色背景 */
+            font-weight: bold;
+            color: #000 !important;
+            position: relative;
+        }
+        th.highlight-column {
+            background-color: #ffcc00 !important; /* 更深的黄色用于表头 */
+        }
+        th.highlight-column::after {
+            content: " 🔍";
+            font-size: 0.8em;
+        }
+        
         .btn { display: inline-block; margin-top: 15px; padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; }
         .btn:hover { background-color: #0056b3; }
         .charts { margin-top: 20px; }
         .chart-link { margin-right: 10px; }
         ul { margin: 0; padding-left: 20px; }
+        
+        /* 改进表格样式 */
+        .table-container {
+            overflow-x: auto;
+            max-height: 70vh; /* 限制表格高度 */
+            scrollbar-width: thin;
+        }
+        .results-section {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -54,14 +104,563 @@
                 <a href="{{ url_for('show_chart', column_id=stats.id, chart_type=ctype) }}" class="btn chart-link">{{ cname }}</a>
             {% endfor %}
             
-            {% if stats.data_type in ['integer', 'float'] %}
             <div style="margin: 15px 0;">
-                <p>提示: 在图表页面可以选择过滤掉数值为0的数据点</p>
+                <p>提示: 在图表页面可以自定义以下设置:</p>
+                <ul style="margin-top: 5px;">
+                    <li>图表标题</li>
+                    <li>横轴和纵轴名称</li>
+                    <li>显示颜色</li>
+                    {% if stats.data_type in ['integer', 'float'] %}
+                    <li>不包含数值为0的数据</li>
+                    <li>坐标轴步长</li>
+                    <li>横轴和纵轴范围</li>
+                    {% endif %}
+                </ul>
             </div>
-            {% endif %}
         </div>
         
+        <!-- 反查功能 -->
+        <div class="lookup-section" style="margin-top: 30px;">
+            <h2>数据反查</h2>
+            <form id="lookupForm" action="{{ url_for('lookup_data', column_id=stats.id) }}" method="get">
+                <div style="margin-bottom: 15px;">
+                    {% if stats.data_type in ['integer', 'float'] %}
+                    <!-- 数值类型的反查 -->
+                    <div>
+                        <label for="condition">条件：</label>
+                        <select id="condition" name="condition" class="form-control" style="padding: 8px; margin-right: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="eq">等于</option>
+                            <option value="gt">大于</option>
+                            <option value="lt">小于</option>
+                            <option value="gte">大于等于</option>
+                            <option value="lte">小于等于</option>
+                            <option value="between">在范围内</option>
+                        </select>
+                    </div>
+                    <div id="singleValueDiv" style="margin-top: 10px;">
+                        <label for="value">数值：</label>
+                        <input type="number" id="value" name="value" step="any" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div id="rangeDiv" style="display: none; margin-top: 10px;">
+                        <label for="min_value">最小值：</label>
+                        <input type="number" id="min_value" name="min_value" step="any" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-right: 10px;">
+                        <label for="max_value">最大值：</label>
+                        <input type="number" id="max_value" name="max_value" step="any" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    {% elif stats.data_type in ['categorical', 'boolean'] %}
+                    <!-- 类别类型的反查 -->
+                    <div>
+                        <label for="category">选择类别：</label>
+                        <select id="category" name="category" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            {% for key in stats.distribution.keys() %}
+                            <option value="{{ key }}">{{ key }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="btn" style="margin-top: 10px;">查询</button>
+            </form>
+        </div>
+        
+        <div id="results" class="results-section" style="margin-top: 20px; display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>反查结果</h3>
+                <div>
+                    <span id="resultCount" style="margin-right: 15px; font-weight: bold;"></span>
+                    <div class="download-buttons" style="display: none;">
+                        <button id="downloadCsv" class="btn">CSV</button>
+                        <button id="downloadXlsx" class="btn">XLSX</button>
+                    </div>
+                </div>
+            </div>
+            <div class="table-container" style="overflow-x: auto;">
+                <table id="resultsTable" class="sortable">
+                    <thead>
+                        <tr id="headerRow"></tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+            <!-- 分页控件 -->
+            <div id="pagination" class="pagination" style="margin-top: 20px; display: none; text-align: center;">
+                <div class="pagination-controls">
+                    <button id="prevPage" class="btn page-btn">&lt; 上一页</button>
+                    <span class="page-info" style="margin: 0 15px;">
+                        <span>第</span>
+                        <input type="number" id="currentPage" min="1" value="1" style="width: 50px; text-align: center; margin: 0 5px;">
+                        <span>页，共 <span id="totalPages">1</span> 页</span>
+                    </span>
+                    <button id="nextPage" class="btn page-btn">下一页 &gt;</button>
+                </div>
+            </div>
+        </div>
+
         <a href="/" class="btn" style="margin-top:20px;">返回首页</a>
     </div>
+
+    <!-- 排序表格的JavaScript代码 -->
+    <script>
+        // 存储当前查询参数和数据(全局变量)
+        window.currentQuery = {
+            formData: null,
+            baseUrl: '',
+            currentPage: 1,
+            totalPages: 1,
+            resultData: null
+        };
+
+        // 加载指定页(全局函数)
+        function loadPage(page) {
+            if (!window.currentQuery.formData) return;
+            
+            window.currentQuery.currentPage = page;
+            document.getElementById('currentPage').value = page;
+            
+            executeQuery(window.currentQuery.formData, window.currentQuery.baseUrl, page);
+        }
+        
+        // 执行查询(全局函数)
+        function executeQuery(formData, baseUrl, page) {
+            const queryFormData = new FormData();
+            formData.forEach((value, key) => {
+                queryFormData.append(key, value);
+            });
+            queryFormData.append('page', page);
+            
+            const queryString = new URLSearchParams(queryFormData).toString();
+            
+            fetch(`${baseUrl}?${queryString}`)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.error || '请求失败');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    window.currentQuery.resultData = data;
+                    displayResults(data);
+                })
+                .catch(error => {
+                    console.error('查询出错:', error);
+                    alert('查询出错: ' + error.message);
+                    // 在页面上显示错误信息
+                    const resultsSection = document.getElementById('results');
+                    resultsSection.style.display = 'block';
+                    const resultsBody = document.getElementById('resultsBody');
+                    const headerRow = document.getElementById('headerRow');
+                    headerRow.innerHTML = '';
+                    resultsBody.innerHTML = '';
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.textContent = '查询失败: ' + error.message;
+                    td.colSpan = 5;
+                    tr.appendChild(td);
+                    resultsBody.appendChild(tr);
+                    
+                    // 隐藏分页控件
+                    document.getElementById('pagination').style.display = 'none';
+                });
+        }
+
+        // 处理表单切换显示及绑定事件
+        document.addEventListener('DOMContentLoaded', function() {
+            // 条件选择变化处理
+            const setupConditionSelect = function() {
+                const conditionSelect = document.getElementById('condition');
+                const singleValueDiv = document.getElementById('singleValueDiv');
+                const rangeDiv = document.getElementById('rangeDiv');
+                
+                if (conditionSelect) {
+                    conditionSelect.addEventListener('change', function() {
+                        if (this.value === 'between') {
+                            singleValueDiv.style.display = 'none';
+                            rangeDiv.style.display = 'block';
+                        } else {
+                            singleValueDiv.style.display = 'block';
+                            rangeDiv.style.display = 'none';
+                        }
+                    });
+                }
+            };
+            
+            // 表单提交处理
+            const setupFormSubmission = function() {
+                const lookupForm = document.getElementById('lookupForm');
+                if (lookupForm) {
+                    // 移除所有已存在的提交事件监听器
+                    const newForm = lookupForm.cloneNode(true);
+                    lookupForm.parentNode.replaceChild(newForm, lookupForm);
+                    
+                    // 添加新的提交事件监听器
+                    newForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        const formData = new FormData(newForm);
+                        
+                        // 保存查询参数，用于翻页
+                        window.currentQuery.formData = new FormData(newForm);
+                        window.currentQuery.baseUrl = newForm.action;
+                        window.currentQuery.currentPage = 1;
+                        
+                        executeQuery(formData, newForm.action, 1);
+                    });
+                    
+                    // 如果表单包含条件选择，重新设置条件选择事件
+                    setupConditionSelect();
+                }
+            };
+            
+            // 分页控件事件
+            const setupPagination = function() {
+                // 移除旧事件监听器并添加新事件监听器
+                const prevPage = document.getElementById('prevPage');
+                const nextPage = document.getElementById('nextPage');
+                const currentPage = document.getElementById('currentPage');
+                
+                const newPrevPage = prevPage.cloneNode(true);
+                prevPage.parentNode.replaceChild(newPrevPage, prevPage);
+                newPrevPage.addEventListener('click', function() {
+                    if (window.currentQuery.currentPage > 1) {
+                        loadPage(window.currentQuery.currentPage - 1);
+                    }
+                });
+                
+                const newNextPage = nextPage.cloneNode(true);
+                nextPage.parentNode.replaceChild(newNextPage, nextPage);
+                newNextPage.addEventListener('click', function() {
+                    if (window.currentQuery.currentPage < window.currentQuery.totalPages) {
+                        loadPage(window.currentQuery.currentPage + 1);
+                    }
+                });
+                
+                const newCurrentPage = currentPage.cloneNode(true);
+                currentPage.parentNode.replaceChild(newCurrentPage, currentPage);
+                newCurrentPage.addEventListener('change', function() {
+                    let page = parseInt(this.value);
+                    if (isNaN(page) || page < 1) {
+                        page = 1;
+                    } else if (page > window.currentQuery.totalPages) {
+                        page = window.currentQuery.totalPages;
+                    }
+                    this.value = page;
+                    loadPage(page);
+                });
+            };
+            
+            // 初始设置
+            setupConditionSelect();
+            setupFormSubmission();
+            setupPagination();
+            
+            // 将这些设置函数暴露到全局作用域，以便在显示结果后可以重新绑定事件
+            window.setupEvents = {
+                setupConditionSelect,
+                setupFormSubmission,
+                setupPagination
+            };
+        });
+        
+        // 显示结果函数
+        function displayResults(data) {
+            const resultsSection = document.getElementById('results');
+            const headerRow = document.getElementById('headerRow');
+            const resultsBody = document.getElementById('resultsBody');
+            const resultCount = document.getElementById('resultCount');
+            const downloadBtns = document.querySelector('.download-buttons');
+            const downloadCsvBtn = document.getElementById('downloadCsv');
+            const downloadXlsxBtn = document.getElementById('downloadXlsx');
+            const pagination = document.getElementById('pagination');
+            
+            // 清空现有内容
+            headerRow.innerHTML = '';
+            resultsBody.innerHTML = '';
+            
+            if (data.data && data.data.length > 0) {
+                // 显示结果区域
+                resultsSection.style.display = 'block';
+                
+                // 显示结果数量
+                resultCount.textContent = data.note || `查询到 ${data.total_count} 条记录`;
+                
+                // 显示下载按钮
+                downloadBtns.style.display = 'inline-block';
+                
+                // 保存查询结果用于下载（使用全量数据）
+                const downloadData = {
+                    columns: data.columns,
+                    data: data.has_more_data ? [] : (data.all_data || data.data)
+                };
+                
+                // 添加下载事件
+                downloadCsvBtn.onclick = function() {
+                    if (data.has_more_data) {
+                        alert('数据量过大，请选择较小的查询条件再尝试下载');
+                        return;
+                    }
+                    downloadCSV(downloadData);
+                };
+                
+                downloadXlsxBtn.onclick = function() {
+                    if (data.has_more_data) {
+                        alert('数据量过大，请选择较小的查询条件再尝试下载');
+                        return;
+                    }
+                    downloadXLSX(downloadData);
+                };
+                
+                // 添加表头
+                const columns = data.columns;
+                const currentColumnName = document.querySelector('h1').textContent.replace('列详情: ', '').trim();
+                
+                columns.forEach(column => {
+                    const th = document.createElement('th');
+                    th.textContent = column;
+                    th.onclick = function() { sortTable(this); };
+                    
+                    // 高亮当前查询的关键列
+                    if (column === currentColumnName) {
+                        th.classList.add('highlight-column');
+                    }
+                    
+                    headerRow.appendChild(th);
+                });
+                
+                // 添加数据行
+                data.data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    columns.forEach((column, colIndex) => {
+                        const td = document.createElement('td');
+                        td.textContent = row[column] !== null ? row[column] : '';
+                        
+                        // 高亮当前查询的关键列
+                        if (column === currentColumnName) {
+                            td.classList.add('highlight-column');
+                        }
+                        
+                        tr.appendChild(td);
+                    });
+                    resultsBody.appendChild(tr);
+                });
+                
+                // 设置分页信息
+                if (data.total_pages > 1) {
+                    pagination.style.display = 'block';
+                    document.getElementById('currentPage').value = data.current_page;
+                    document.getElementById('totalPages').textContent = data.total_pages;
+                    
+                    // 保存分页信息
+                    window.currentQuery.currentPage = data.current_page;
+                    window.currentQuery.totalPages = data.total_pages;
+                    
+                    // 设置上一页/下一页按钮状态
+                    document.getElementById('prevPage').disabled = data.current_page <= 1;
+                    document.getElementById('nextPage').disabled = data.current_page >= data.total_pages;
+                } else {
+                    pagination.style.display = 'none';
+                }
+            } else {
+                resultsSection.style.display = 'block';
+                resultCount.textContent = '没有找到匹配的数据';
+                downloadBtns.style.display = 'none';
+                pagination.style.display = 'none';
+                
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.textContent = '没有找到匹配的数据';
+                td.colSpan = 5;
+                tr.appendChild(td);
+                resultsBody.appendChild(tr);
+            }
+            
+            // 重要：在每次显示结果后重新绑定所有事件监听器
+            // 这确保在DOM更新后表单和分页控件的交互仍然有效
+            if (window.setupEvents) {
+                setTimeout(() => {
+                    window.setupEvents.setupFormSubmission();
+                    window.setupEvents.setupPagination();
+                }, 100);
+            }
+        }
+        
+        // 表格排序函数
+        function sortTable(header) {
+            const table = header.closest('table');
+            const columnIndex = Array.from(header.parentNode.children).indexOf(header);
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            const isNumeric = rows.length > 0 && !isNaN(rows[0].children[columnIndex].textContent);
+            const direction = header.classList.contains('asc') ? -1 : 1;
+            
+            // 切换排序方向
+            header.parentNode.querySelectorAll('th').forEach(th => th.classList.remove('asc', 'desc'));
+            header.classList.add(direction === 1 ? 'asc' : 'desc');
+            
+            // 排序行
+            rows.sort((a, b) => {
+                const aValue = a.children[columnIndex].textContent.trim();
+                const bValue = b.children[columnIndex].textContent.trim();
+                
+                if (isNumeric) {
+                    return direction * (parseFloat(aValue) - parseFloat(bValue));
+                } else {
+                    return direction * aValue.localeCompare(bValue);
+                }
+            });
+            
+            // 重新排列表格行
+            rows.forEach(row => table.querySelector('tbody').appendChild(row));
+        }
+        
+        // 下载CSV功能
+        function downloadCSV(data) {
+            if (!data || !data.data || !data.data.length) {
+                alert('没有数据可以下载');
+                return;
+            }
+            
+            const columns = data.columns;
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // 添加BOM确保Excel打开时能正确识别UTF-8编码
+            
+            // 添加表头
+            csvContent += columns.join(",") + "\r\n";
+            
+            // 添加数据行
+            data.data.forEach(row => {
+                const rowData = columns.map(column => {
+                    const value = row[column] !== null ? row[column] : '';
+                    // 如果值包含逗号、换行或引号，则需要用引号包裹并处理引号
+                    if (typeof value === 'string' && (value.includes(',') || value.includes('\n') || value.includes('"'))) {
+                        return '"' + value.replace(/"/g, '""') + '"';
+                    }
+                    return value;
+                });
+                csvContent += rowData.join(",") + "\r\n";
+            });
+            
+            // 创建下载链接
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            
+            // 设置文件名 - 使用列名和当前日期
+            const date = new Date();
+            const dateStr = date.getFullYear() + 
+                            ('0' + (date.getMonth()+1)).slice(-2) + 
+                            ('0' + date.getDate()).slice(-2) + 
+                            ('0' + date.getHours()).slice(-2) + 
+                            ('0' + date.getMinutes()).slice(-2);
+            const columnName = document.querySelector('h1').textContent.replace('列详情: ', '').trim();
+            link.setAttribute("download", `${columnName}_查询结果_${dateStr}.csv`);
+            
+            // 模拟点击下载
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // 下载XLSX功能
+        function downloadXLSX(data) {
+            if (!data || !data.data || !data.data.length) {
+                alert('没有数据可以下载');
+                return;
+            }
+            
+            const columns = data.columns;
+            
+            // 创建工作表数据
+            const wsData = [columns];  // 第一行是表头
+            
+            // 添加数据行
+            data.data.forEach(row => {
+                const rowData = columns.map(column => {
+                    return row[column] !== null ? row[column] : '';
+                });
+                wsData.push(rowData);
+            });
+            
+            // 创建工作表
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            
+            // 创建工作簿
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "查询结果");
+            
+            // 设置文件名 - 使用列名和当前日期
+            const date = new Date();
+            const dateStr = date.getFullYear() + 
+                            ('0' + (date.getMonth()+1)).slice(-2) + 
+                            ('0' + date.getDate()).slice(-2) + 
+                            ('0' + date.getHours()).slice(-2) + 
+                            ('0' + date.getMinutes()).slice(-2);
+            const columnName = document.querySelector('h1').textContent.replace('列详情: ', '').trim();
+            const fileName = `${columnName}_查询结果_${dateStr}.xlsx`;
+            
+            // 下载文件
+            XLSX.writeFile(wb, fileName);
+        }
+    </script>
+    
+    <style>
+        .sortable th {
+            cursor: pointer;
+            position: relative;
+        }
+        .sortable th:hover {
+            background-color: #0069d9;
+        }
+        .sortable th.asc:after {
+            content: " ↑";
+        }
+        .sortable th.desc:after {
+            content: " ↓";
+        }
+        .results-section table {
+            width: 100%;
+            margin-top: 15px;
+        }
+        .form-control {
+            display: inline-block;
+            width: auto;
+        }
+        .download-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        #downloadCsv {
+            background-color: #28a745;
+        }
+        #downloadCsv:hover {
+            background-color: #218838;
+        }
+        #downloadXlsx {
+            background-color: #17a2b8;
+        }
+        #downloadXlsx:hover {
+            background-color: #138496;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .page-btn {
+            background-color: #007bff;
+            padding: 5px 10px;
+        }
+        .page-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #currentPage {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
 </body>
 </html>

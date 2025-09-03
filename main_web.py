@@ -3,7 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash
+from matplotlib.ticker import MultipleLocator
+from flask import Flask, render_template, request, send_file, redirect, url_for, flash, jsonify
 import io
 import base64
 import matplotlib
@@ -165,7 +166,7 @@ def plot_to_base64():
     plt.close()
     return plot_url, img
 
-def generate_chart(column, chart_type, save_path=None, exclude_zeros=False):
+def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_step_size=None, x_step_size=None, y_min=None, y_max=None, x_min=None, x_max=None, chart_color=None, y_label=None, x_label=None, chart_title=None):
     """根据列和图表类型生成图表
     
     参数:
@@ -173,6 +174,16 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False):
         chart_type: 图表类型
         save_path: 如果提供，则将图表保存到该路径
         exclude_zeros: 如果为True，则排除所有数值为0的数据点
+        y_step_size: 纵轴刻度的步长
+        x_step_size: 横轴刻度的步长
+        y_min: 纵轴最小值
+        y_max: 纵轴最大值
+        x_min: 横轴最小值
+        x_max: 横轴最大值
+        chart_color: 图表颜色
+        y_label: 自定义纵轴名称
+        x_label: 自定义横轴名称
+        chart_title: 自定义图表标题
     """
     col_info = column_info[column]
     data = processed_df[column].dropna()
@@ -186,7 +197,10 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False):
     plt.figure(figsize=(10, 6))
     
     # 使用自定义配色方案
-    colors = sns.color_palette("husl", 8)
+    if chart_color:
+        colors = [chart_color]
+    else:
+        colors = sns.color_palette("husl", 8)
     
     # 确保使用阿里巴巴普惠体
     plt.rc('font', **{'family': 'sans-serif', 'sans-serif': [alibaba_font, 'SimHei']})
@@ -206,7 +220,7 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False):
                    autopct=autopct_format(value_counts.values),
                    colors=colors, shadow=True, startangle=90,
                    wedgeprops={'edgecolor': 'w', 'linewidth': 1})
-            plt.title(f'{column} - 饼图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.title(chart_title if chart_title else f'{column} - 饼图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
             
         elif chart_type == 'bar':
             # 使用seaborn的barplot
@@ -219,8 +233,9 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False):
                 ax.text(p.get_x() + p.get_width()/2., height + 0.1,
                         f'{int(height)}', ha='center', fontweight='bold')
             
-            plt.title(f'{column} - 柱状图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
-            plt.ylabel('数量', fontsize=12, fontproperties=font_prop)
+            plt.title(chart_title if chart_title else f'{column} - 柱状图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.ylabel(y_label if y_label else '数量', fontsize=12, fontproperties=font_prop)
+            plt.xlabel(x_label if x_label else column, fontsize=12, fontproperties=font_prop)
     
     elif col_info['type'] in ['integer', 'float']:
         if chart_type == 'histogram':
@@ -228,23 +243,20 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False):
             ax = sns.histplot(data, bins=20, kde=True, color=colors[0], edgecolor='white', linewidth=1)
             counts, bins = np.histogram(data, bins=20)
             
-            # 添加数值标签
-            for i, count in enumerate(counts):
-                if count > 0:
-                    plt.text(bins[i] + (bins[i+1] - bins[i])/2, count, 
-                            f'{int(count)}', ha='center', va='bottom', fontsize=9)
+            # 保存bin数据供后续使用
+            hist_data = {'counts': counts, 'bins': bins}
             
-            plt.title(f'{column} - 直方图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
-            plt.xlabel(column, fontsize=12, fontproperties=font_prop)
-            plt.ylabel('频次', fontsize=12, fontproperties=font_prop)
+            plt.title(chart_title if chart_title else f'{column} - 直方图分布', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.xlabel(x_label if x_label else column, fontsize=12, fontproperties=font_prop)
+            plt.ylabel(y_label if y_label else '频次', fontsize=12, fontproperties=font_prop)
             
         elif chart_type == 'line':
             sorted_data = data.sort_values()
             # 使用seaborn的lineplot
             ax = sns.lineplot(x=range(len(sorted_data)), y=sorted_data.values, marker='o', color=colors[1])
-            plt.title(f'{column} - 折线图', fontsize=16, fontweight='bold', fontproperties=font_prop)
-            plt.xlabel('索引', fontsize=12, fontproperties=font_prop)
-            plt.ylabel(column, fontsize=12, fontproperties=font_prop)
+            plt.title(chart_title if chart_title else f'{column} - 折线图', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.xlabel(x_label if x_label else '索引', fontsize=12, fontproperties=font_prop)
+            plt.ylabel(y_label if y_label else column, fontsize=12, fontproperties=font_prop)
             
         elif chart_type == 'bar':
             # 对于数值类型的柱状图，显示值的分布
@@ -260,11 +272,58 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False):
                 ax.text(p.get_x() + p.get_width()/2., height + 0.1,
                         f'{int(height)}', ha='center', fontweight='bold')
             
-            plt.title(f'{column} - 值分布柱状图', fontsize=16, fontweight='bold', fontproperties=font_prop)
-            plt.ylabel('频次', fontsize=12, fontproperties=font_prop)
+            plt.title(chart_title if chart_title else f'{column} - 值分布柱状图', fontsize=16, fontweight='bold', fontproperties=font_prop)
+            plt.xlabel(x_label if x_label else column, fontsize=12, fontproperties=font_prop)
+            plt.ylabel(y_label if y_label else '频次', fontsize=12, fontproperties=font_prop)
     
     # 添加网格线美化
     plt.grid(True, linestyle='--', alpha=0.7)
+    
+    # 设置坐标轴范围和步长
+    ax = plt.gca()
+    # 设置纵轴步长
+    if y_step_size and y_step_size.strip() and col_info['type'] in ['integer', 'float']:
+        ax.yaxis.set_major_locator(plt.MultipleLocator(float(y_step_size)))
+    # 设置横轴步长
+    if x_step_size and x_step_size.strip() and chart_type != 'pie' and col_info['type'] in ['integer', 'float']:
+        ax.xaxis.set_major_locator(plt.MultipleLocator(float(x_step_size)))
+    
+    # 安全转换值，检查None和空字符串
+    def safe_float(value):
+        if value is None or value == '' or not value.strip():
+            return None
+        return float(value)
+    
+    y_min_float = safe_float(y_min)
+    y_max_float = safe_float(y_max)
+    x_min_float = safe_float(x_min)
+    x_max_float = safe_float(x_max)
+    
+    if y_min_float is not None or y_max_float is not None:
+        plt.ylim(bottom=y_min_float, top=y_max_float)
+    
+    if (x_min_float is not None or x_max_float is not None) and chart_type != 'pie':
+        plt.xlim(left=x_min_float, right=x_max_float)
+        
+    # 在设置坐标轴范围后添加直方图标签
+    if chart_type == 'histogram' and col_info['type'] in ['integer', 'float']:
+        # 获取当前的x轴范围
+        x_min_current, x_max_current = plt.xlim()
+        y_min_current, y_max_current = plt.ylim()
+        
+        # 访问histogram数据
+        if 'hist_data' in locals():
+            counts = hist_data['counts']
+            bins = hist_data['bins']
+            
+            # 添加数值标签，仅在可见区域内
+            for i, count in enumerate(counts):
+                bin_center = bins[i] + (bins[i+1] - bins[i])/2
+                if count > 0 and x_min_current <= bin_center <= x_max_current and count <= y_max_current:
+                    # 确保标签不会超出图表顶部
+                    label_y_pos = min(count, y_max_current * 0.95)  # 留一些边距
+                    plt.text(bin_center, label_y_pos, 
+                            f'{int(count)}', ha='center', va='bottom', fontsize=9)
     
     # 增强图表边框
     plt.gca().spines['top'].set_visible(False)
@@ -398,8 +457,18 @@ def upload_file():
 @app.route('/chart/<int:column_id>/<chart_type>')
 def show_chart(column_id, chart_type):
     """显示指定列和类型的图表"""
-    # 获取是否排除零值的参数
+    # 获取所有自定义参数
     exclude_zeros = request.args.get('exclude_zeros', 'false').lower() == 'true'
+    y_step_size = request.args.get('y_step_size')
+    x_step_size = request.args.get('x_step_size')
+    y_min = request.args.get('y_min')
+    y_max = request.args.get('y_max')
+    x_min = request.args.get('x_min')
+    x_max = request.args.get('x_max')
+    chart_color = request.args.get('chart_color')
+    y_label = request.args.get('y_label')
+    x_label = request.args.get('x_label')
+    chart_title = request.args.get('chart_title')
     # 通过ID查找列名
     if column_id not in id_column_map:
         return f"列ID不存在: {column_id}", 404
@@ -425,7 +494,21 @@ def show_chart(column_id, chart_type):
     if chart_type not in valid_charts.get(col_type, []):
         return f"图表类型 {chart_type} 不适用于 {col_type} 类型的数据", 400
     
-    chart_data, _ = generate_chart(column, chart_type, exclude_zeros=exclude_zeros)
+    chart_data, _ = generate_chart(
+        column, 
+        chart_type, 
+        exclude_zeros=exclude_zeros,
+        y_step_size=y_step_size,
+        x_step_size=x_step_size,
+        y_min=y_min,
+        y_max=y_max,
+        x_min=x_min,
+        x_max=x_max,
+        chart_color=chart_color,
+        y_label=y_label,
+        x_label=x_label,
+        chart_title=chart_title
+    )
     stats = get_column_statistics(column)
     
     return render_template('chart.html', 
@@ -434,13 +517,33 @@ def show_chart(column_id, chart_type):
                          chart_type=chart_type,
                          stats=stats,
                          data_summary=data_summary,
-                         exclude_zeros=exclude_zeros)
+                         exclude_zeros=exclude_zeros,
+                         y_step_size=y_step_size,
+                         x_step_size=x_step_size,
+                         y_min=y_min,
+                         y_max=y_max,
+                         x_min=x_min,
+                         x_max=x_max,
+                         chart_color=chart_color,
+                         y_label=y_label,
+                         x_label=x_label,
+                         chart_title=chart_title)
 
 @app.route('/download_chart/<int:column_id>/<chart_type>')
 def download_chart(column_id, chart_type):
     """下载图表为PNG文件"""
-    # 获取是否排除零值的参数
+    # 获取所有自定义参数
     exclude_zeros = request.args.get('exclude_zeros', 'false').lower() == 'true'
+    y_step_size = request.args.get('y_step_size')
+    x_step_size = request.args.get('x_step_size')
+    y_min = request.args.get('y_min')
+    y_max = request.args.get('y_max')
+    x_min = request.args.get('x_min')
+    x_max = request.args.get('x_max')
+    chart_color = request.args.get('chart_color')
+    y_label = request.args.get('y_label')
+    x_label = request.args.get('x_label')
+    chart_title = request.args.get('chart_title')
     # 通过ID查找列名
     if column_id not in id_column_map:
         return f"列ID不存在: {column_id}", 404
@@ -463,7 +566,21 @@ def download_chart(column_id, chart_type):
         return f"图表类型 {chart_type} 不适用于 {col_type} 类型的数据", 400
     
     # 生成图表并获取图像数据
-    _, img_buffer = generate_chart(column, chart_type, exclude_zeros=exclude_zeros)
+    _, img_buffer = generate_chart(
+        column, 
+        chart_type, 
+        exclude_zeros=exclude_zeros,
+        y_step_size=y_step_size,
+        x_step_size=x_step_size,
+        y_min=y_min,
+        y_max=y_max,
+        x_min=x_min,
+        x_max=x_max,
+        chart_color=chart_color,
+        y_label=y_label,
+        x_label=x_label,
+        chart_title=chart_title
+    )
     img_buffer.seek(0)
     
     # 设置文件名
@@ -508,6 +625,167 @@ def column_detail(column_id):
                          recommended_charts=recommended_charts,
                          data_summary=data_summary)
 
+@app.route('/lookup_data/<int:column_id>')
+def lookup_data(column_id):
+    """根据条件查找数据"""
+    # 通过ID查找列名
+    if column_id not in id_column_map:
+        return jsonify({"error": f"列ID不存在: {column_id}"}), 404
+    
+    column = id_column_map[column_id]
+    if column not in column_info:
+        return jsonify({"error": f"列不存在: '{column}'"}), 404
+    
+    col_info = column_info[column]
+    data_type = col_info['type']
+    
+    # 获取查询参数
+    try:
+        if data_type in ['integer', 'float']:
+            condition = request.args.get('condition')
+            filtered_df = None
+            
+            if condition == 'between':
+                min_value = request.args.get('min_value')
+                max_value = request.args.get('max_value')
+                
+                if not min_value or not max_value:
+                    return jsonify({"error": "范围查询需要提供最小值和最大值"}), 400
+                
+                try:
+                    min_value = float(min_value)
+                    max_value = float(max_value)
+                except ValueError:
+                    return jsonify({"error": f"无法将值转换为数值：最小值='{min_value}'，最大值='{max_value}'"}), 400
+                
+                filtered_df = processed_df[(processed_df[column] >= min_value) & 
+                                          (processed_df[column] <= max_value)]
+            else:
+                value = request.args.get('value')
+                if not value:
+                    return jsonify({"error": "需要提供查询值"}), 400
+                
+                try:
+                    value = float(value)
+                except ValueError:
+                    return jsonify({"error": f"无法将值 '{value}' 转换为数值"}), 400
+                
+                if condition == 'eq':
+                    filtered_df = processed_df[processed_df[column] == value]
+                elif condition == 'gt':
+                    filtered_df = processed_df[processed_df[column] > value]
+                elif condition == 'lt':
+                    filtered_df = processed_df[processed_df[column] < value]
+                elif condition == 'gte':
+                    filtered_df = processed_df[processed_df[column] >= value]
+                elif condition == 'lte':
+                    filtered_df = processed_df[processed_df[column] <= value]
+                else:
+                    return jsonify({"error": f"不支持的条件: {condition}"}), 400
+                
+        elif data_type in ['categorical', 'boolean']:
+            category = request.args.get('category')
+            if not category:
+                return jsonify({"error": "需要提供类别值"}), 400
+            
+            filtered_df = processed_df[processed_df[column] == category]
+        else:
+            return jsonify({"error": f"不支持的数据类型: {data_type}"}), 400
+        
+        # 处理分页
+        total_count = len(filtered_df)
+        per_page = 100  # 每页显示100条记录
+        
+        # 获取页码，默认为第1页
+        page = request.args.get('page', 1, type=int)
+        if page < 1:
+            page = 1
+            
+        # 计算总页数
+        total_pages = (total_count + per_page - 1) // per_page  # 向上取整
+        if page > total_pages and total_pages > 0:
+            page = total_pages
+        
+        # 截取当前页数据
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        page_data = filtered_df.iloc[start_idx:end_idx].copy()
+        
+        # 准备结果说明
+        if total_count > 0:
+            result_note = f"共{total_count}条结果，当前显示第{page}页，共{total_pages}页"
+        else:
+            result_note = "没有找到匹配的数据"
+            
+        # 保留完整数据用于全部下载
+        full_data = filtered_df
+        
+        # 转换为JSON格式前处理NaN值和格式保留
+        # 先将NaN替换为None，这样在JSON序列化时会被转换为null
+        json_data = []
+        
+        # 获取数据类型信息，用于保持格式一致性
+        dtypes = page_data.dtypes.to_dict()
+        
+        for record in page_data.replace({np.nan: None}).to_dict('records'):
+            # 确保所有值都是JSON可序列化的，并保持格式一致性
+            clean_record = {}
+            for key, value in record.items():
+                if isinstance(value, float) and (np.isnan(value) or np.isinf(value)):
+                    clean_record[key] = None
+                # 确保日期类型保持原始字符串格式
+                elif pd.api.types.is_datetime64_any_dtype(dtypes.get(key)):
+                    if value is not None:
+                        # 如果是pandas Timestamp，转换为原始字符串格式
+                        if isinstance(value, pd.Timestamp):
+                            clean_record[key] = value.strftime('%Y-%m-%d %H:%M:%S')
+                        else:
+                            clean_record[key] = str(value)
+                    else:
+                        clean_record[key] = None
+                else:
+                    clean_record[key] = value
+            json_data.append(clean_record)
+            
+        # 全部数据的提取（用于支持下载完整数据）
+        all_data = []
+        if total_count > per_page:  # 只有当数据量大于每页显示量时才处理全量数据
+            all_data_dtypes = full_data.dtypes.to_dict()
+            for record in full_data.replace({np.nan: None}).to_dict('records'):
+                clean_record = {}
+                for key, value in record.items():
+                    if isinstance(value, float) and (np.isnan(value) or np.isinf(value)):
+                        clean_record[key] = None
+                    elif pd.api.types.is_datetime64_any_dtype(all_data_dtypes.get(key)):
+                        if value is not None:
+                            if isinstance(value, pd.Timestamp):
+                                clean_record[key] = value.strftime('%Y-%m-%d %H:%M:%S')
+                            else:
+                                clean_record[key] = str(value)
+                        else:
+                            clean_record[key] = None
+                    else:
+                        clean_record[key] = value
+                all_data.append(clean_record)
+        else:
+            all_data = json_data  # 如果数据量少，页面数据就是全部数据
+        
+        result = {
+            "columns": page_data.columns.tolist(),
+            "data": json_data,
+            "all_data": all_data if len(all_data) <= 10000 else [],  # 限制返回的全量数据大小
+            "total_count": total_count,
+            "current_page": page,
+            "total_pages": total_pages,
+            "per_page": per_page,
+            "note": result_note,
+            "has_more_data": len(all_data) > 10000  # 标记是否需要单独请求全量数据
+        }
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        return jsonify({"error": f"处理请求时出错: {str(e)}"}), 500
 
 
 def main():
