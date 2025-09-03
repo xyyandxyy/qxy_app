@@ -253,7 +253,7 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
         elif chart_type == 'line':
             sorted_data = data.sort_values()
             # 使用seaborn的lineplot
-            ax = sns.lineplot(x=range(len(sorted_data)), y=sorted_data.values, marker='o', color=colors[1])
+            ax = sns.lineplot(x=range(len(sorted_data)), y=sorted_data.values, marker='o', markersize=5, alpha=0.9, color=colors[1])
             plt.title(chart_title if chart_title else f'{column} - 折线图', fontsize=16, fontweight='bold', fontproperties=font_prop)
             plt.xlabel(x_label if x_label else '索引', fontsize=12, fontproperties=font_prop)
             plt.ylabel(y_label if y_label else column, fontsize=12, fontproperties=font_prop)
