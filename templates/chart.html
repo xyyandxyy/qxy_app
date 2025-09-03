@@ -273,6 +273,45 @@
                     <label for="chart_color">图表颜色：</label>
                     <input type="color" id="chart_color" name="chart_color" class="form-input" value="{{ chart_color or '#1f77b4' }}">
                 </div>
+
+                {% if chart_type == 'line' %}
+                <div class="input-group">
+                    <label for="marker_style">点标记样式：</label>
+                    <select id="marker_style" name="marker_style" class="form-input">
+                        <option value="o" {% if marker_style == 'o' %}selected{% endif %}>圆形 (o)</option>
+                        <option value="s" {% if marker_style == 's' %}selected{% endif %}>方形 (s)</option>
+                        <option value="^" {% if marker_style == '^' %}selected{% endif %}>三角形 (^)</option>
+                        <option value="v" {% if marker_style == 'v' %}selected{% endif %}>倒三角 (v)</option>
+                        <option value="D" {% if marker_style == 'D' %}selected{% endif %}>菱形 (D)</option>
+                        <option value="+" {% if marker_style == '+' %}selected{% endif %}>加号 (+)</option>
+                        <option value="x" {% if marker_style == 'x' %}selected{% endif %}>叉号 (x)</option>
+                        <option value="*" {% if marker_style == '*' %}selected{% endif %}>星号 (*)</option>
+                        <option value="." {% if marker_style == '.' %}selected{% endif %}>点 (.)</option>
+                        <option value="None" {% if marker_style == 'None' %}selected{% endif %}>无标记</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="marker_size">点标记大小：</label>
+                    <input type="range" id="marker_size" name="marker_size" class="form-input" min="1" max="15" step="1" value="{{ marker_size or '5' }}" style="padding: 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                        <span>小</span>
+                        <span id="marker_size_value">{{ marker_size or '5' }}</span>
+                        <span>大</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="marker_alpha">点标记透明度：</label>
+                    <input type="range" id="marker_alpha" name="marker_alpha" class="form-input" min="0.1" max="1" step="0.1" value="{{ marker_alpha or '0.9' }}" style="padding: 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                        <span>透明</span>
+                        <span id="marker_alpha_value">{{ marker_alpha or '0.9' }}</span>
+                        <span>不透明</span>
+                    </div>
+                </div>
+                {% endif %}
+                
             </div>
             
             <button type="submit" class="btn">应用设置</button>
@@ -300,6 +339,24 @@
             document.getElementById('showCustomPanel').addEventListener('click', function() {
                 document.getElementById('customPanel').style.display = 'block';
             });
+            
+            // 点标记大小滑块实时更新显示值
+            const markerSizeSlider = document.getElementById('marker_size');
+            const markerSizeValue = document.getElementById('marker_size_value');
+            if (markerSizeSlider && markerSizeValue) {
+                markerSizeSlider.addEventListener('input', function() {
+                    markerSizeValue.textContent = this.value;
+                });
+            }
+            
+            // 点标记透明度滑块实时更新显示值
+            const markerAlphaSlider = document.getElementById('marker_alpha');
+            const markerAlphaValue = document.getElementById('marker_alpha_value');
+            if (markerAlphaSlider && markerAlphaValue) {
+                markerAlphaSlider.addEventListener('input', function() {
+                    markerAlphaValue.textContent = this.value;
+                });
+            }
         });
         
         function closeCustomPanel() {

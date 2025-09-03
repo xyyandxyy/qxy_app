@@ -166,7 +166,7 @@ def plot_to_base64():
     plt.close()
     return plot_url, img
 
-def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_step_size=None, x_step_size=None, y_min=None, y_max=None, x_min=None, x_max=None, chart_color=None, y_label=None, x_label=None, chart_title=None):
+def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_step_size=None, x_step_size=None, y_min=None, y_max=None, x_min=None, x_max=None, chart_color=None, y_label=None, x_label=None, chart_title=None, marker_style=None, marker_size=None, marker_alpha=None):
     """根据列和图表类型生成图表
     
     参数:
@@ -184,6 +184,9 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
         y_label: 自定义纵轴名称
         x_label: 自定义横轴名称
         chart_title: 自定义图表标题
+        marker_style: 折线图的标记样式 (例如: 'o', 's', '^', 'v', 'x', '+')
+        marker_size: 折线图的标记大小
+        marker_alpha: 折线图的标记透明度 (0-1)
     """
     col_info = column_info[column]
     data = processed_df[column].dropna()
@@ -252,8 +255,16 @@ def generate_chart(column, chart_type, save_path=None, exclude_zeros=False, y_st
             
         elif chart_type == 'line':
             sorted_data = data.sort_values()
-            # 使用seaborn的lineplot
-            ax = sns.lineplot(x=range(len(sorted_data)), y=sorted_data.values, marker='o', markersize=5, alpha=0.9, color=colors[1])
+            # 使用seaborn的lineplot，使用传入的自定义参数
+            # 设置默认值和自定义值
+            m_style = marker_style if marker_style else 'o'
+            m_size = int(marker_size) if marker_size else 5
+            m_alpha = float(marker_alpha) if marker_alpha else 0.9
+            line_color = chart_color if chart_color else colors[1]
+            
+            ax = sns.lineplot(x=range(len(sorted_data)), y=sorted_data.values, 
+                            marker=m_style, markersize=m_size, alpha=m_alpha, 
+                            color=line_color)
             plt.title(chart_title if chart_title else f'{column} - 折线图', fontsize=16, fontweight='bold', fontproperties=font_prop)
             plt.xlabel(x_label if x_label else '索引', fontsize=12, fontproperties=font_prop)
             plt.ylabel(y_label if y_label else column, fontsize=12, fontproperties=font_prop)
@@ -491,6 +502,11 @@ def show_chart(column_id, chart_type):
     y_label = request.args.get('y_label')
     x_label = request.args.get('x_label')
     chart_title = request.args.get('chart_title')
+    
+    # 折线图特定参数
+    marker_style = request.args.get('marker_style')
+    marker_size = request.args.get('marker_size')
+    marker_alpha = request.args.get('marker_alpha')
     # 通过ID查找列名
     if column_id not in id_column_map:
         return f"列ID不存在: {column_id}", 404
@@ -529,7 +545,10 @@ def show_chart(column_id, chart_type):
         chart_color=chart_color,
         y_label=y_label,
         x_label=x_label,
-        chart_title=chart_title
+        chart_title=chart_title,
+        marker_style=marker_style,
+        marker_size=marker_size,
+        marker_alpha=marker_alpha
     )
     stats = get_column_statistics(column)
     
@@ -549,7 +568,10 @@ def show_chart(column_id, chart_type):
                          chart_color=chart_color,
                          y_label=y_label,
                          x_label=x_label,
-                         chart_title=chart_title)
+                         chart_title=chart_title,
+                         marker_style=marker_style,
+                         marker_size=marker_size,
+                         marker_alpha=marker_alpha)
 
 @app.route('/download_chart/<int:column_id>/<chart_type>')
 def download_chart(column_id, chart_type):
@@ -566,6 +588,11 @@ def download_chart(column_id, chart_type):
     y_label = request.args.get('y_label')
     x_label = request.args.get('x_label')
     chart_title = request.args.get('chart_title')
+    
+    # 折线图特定参数
+    marker_style = request.args.get('marker_style')
+    marker_size = request.args.get('marker_size')
+    marker_alpha = request.args.get('marker_alpha')
     # 通过ID查找列名
     if column_id not in id_column_map:
         return f"列ID不存在: {column_id}", 404
@@ -601,7 +628,10 @@ def download_chart(column_id, chart_type):
         chart_color=chart_color,
         y_label=y_label,
         x_label=x_label,
-        chart_title=chart_title
+        chart_title=chart_title,
+        marker_style=marker_style,
+        marker_size=marker_size,
+        marker_alpha=marker_alpha
     )
     img_buffer.seek(0)
     
