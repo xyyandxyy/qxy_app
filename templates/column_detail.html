@@ -53,6 +53,12 @@
             {% for ctype, cname in recommended_charts %}
                 <a href="{{ url_for('show_chart', column_id=stats.id, chart_type=ctype) }}" class="btn chart-link">{{ cname }}</a>
             {% endfor %}
+            
+            {% if stats.data_type in ['integer', 'float'] %}
+            <div style="margin: 15px 0;">
+                <p>提示: 在图表页面可以选择过滤掉数值为0的数据点</p>
+            </div>
+            {% endif %}
         </div>
         
         <a href="/" class="btn" style="margin-top:20px;">返回首页</a>

@@ -165,16 +165,21 @@ def plot_to_base64():
     plt.close()
     return plot_url, img
 
-def generate_chart(column, chart_type, save_path=None):
+def generate_chart(column, chart_type, save_path=None, exclude_zeros=False):
     """根据列和图表类型生成图表
     
     参数:
         column: 要生成图表的列名
         chart_type: 图表类型
         save_path: 如果提供，则将图表保存到该路径
+        exclude_zeros: 如果为True，则排除所有数值为0的数据点
     """
     col_info = column_info[column]
     data = processed_df[column].dropna()
+    
+    # 如果是数值列且需要排除零值
+    if exclude_zeros and col_info['type'] in ['integer', 'float']:
+        data = data[data != 0]
     
     # 设置seaborn样式
     sns.set_theme(style="whitegrid")
@@ -393,6 +398,8 @@ def upload_file():
 @app.route('/chart/<int:column_id>/<chart_type>')
 def show_chart(column_id, chart_type):
     """显示指定列和类型的图表"""
+    # 获取是否排除零值的参数
+    exclude_zeros = request.args.get('exclude_zeros', 'false').lower() == 'true'
     # 通过ID查找列名
     if column_id not in id_column_map:
         return f"列ID不存在: {column_id}", 404
@@ -418,7 +425,7 @@ def show_chart(column_id, chart_type):
     if chart_type not in valid_charts.get(col_type, []):
         return f"图表类型 {chart_type} 不适用于 {col_type} 类型的数据", 400
     
-    chart_data, _ = generate_chart(column, chart_type)
+    chart_data, _ = generate_chart(column, chart_type, exclude_zeros=exclude_zeros)
     stats = get_column_statistics(column)
     
     return render_template('chart.html', 
@@ -426,11 +433,14 @@ def show_chart(column_id, chart_type):
                          column=column,
                          chart_type=chart_type,
                          stats=stats,
-                         data_summary=data_summary)
+                         data_summary=data_summary,
+                         exclude_zeros=exclude_zeros)
 
 @app.route('/download_chart/<int:column_id>/<chart_type>')
 def download_chart(column_id, chart_type):
     """下载图表为PNG文件"""
+    # 获取是否排除零值的参数
+    exclude_zeros = request.args.get('exclude_zeros', 'false').lower() == 'true'
     # 通过ID查找列名
     if column_id not in id_column_map:
         return f"列ID不存在: {column_id}", 404
@@ -453,7 +463,7 @@ def download_chart(column_id, chart_type):
         return f"图表类型 {chart_type} 不适用于 {col_type} 类型的数据", 400
     
     # 生成图表并获取图像数据
-    _, img_buffer = generate_chart(column, chart_type)
+    _, img_buffer = generate_chart(column, chart_type, exclude_zeros=exclude_zeros)
     img_buffer.seek(0)
     
     # 设置文件名

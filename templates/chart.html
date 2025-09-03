@@ -20,6 +20,18 @@
 <body>
     <div class="container">
         <h1>{{ column }} - {{ chart_type }} 图表</h1>
+        
+        {% if stats.data_type in ['integer', 'float'] %}
+        <div style="margin: 10px 0 20px 0;">
+            <form method="get" action="{{ url_for('show_chart', column_id=stats.id, chart_type=chart_type) }}">
+                <label for="exclude_zeros" style="display: inline-block; margin-right: 10px;">
+                    <input type="checkbox" id="exclude_zeros" name="exclude_zeros" value="true" {% if exclude_zeros %}checked{% endif %} onchange="this.form.submit();">
+                    不包含数值为0的数据
+                </label>
+            </form>
+        </div>
+        {% endif %}
+        
         <img src="data:image/png;base64,{{ chart_data }}" alt="{{ column }} 图表" class="chart-img" />
         
         <h2>统计信息</h2>
@@ -44,6 +56,12 @@
         
         <a href="{{ url_for('column_detail', column_id=stats.id) }}" class="btn">返回列详情</a>
         <a href="{{ url_for('index') }}" class="btn">返回首页</a>
+        
+        {% if stats.data_type in ['integer', 'float'] %}
+        <a href="{{ url_for('download_chart', column_id=stats.id, chart_type=chart_type, exclude_zeros=exclude_zeros) }}" class="btn">下载图表</a>
+        {% else %}
+        <a href="{{ url_for('download_chart', column_id=stats.id, chart_type=chart_type) }}" class="btn">下载图表</a>
+        {% endif %}
     </div>
 </body>
 </html>
