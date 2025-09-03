@@ -37,6 +37,7 @@ app = Flask(__name__)
 app.secret_key = str(uuid.uuid4())  # 为了使用flash消息功能
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'csv'}
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 
 # 创建上传文件夹
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -463,6 +464,16 @@ def upload_file():
     # 如果用户没有选择文件，浏览器也会发送一个没有文件名的空部分
     if file.filename == '':
         flash('没有选择文件')
+        return redirect(request.url)
+    
+    # 检查文件大小，限制为100MB
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB in bytes
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)  # 重置文件指针到开始位置
+    
+    if file_size > MAX_FILE_SIZE:
+        flash('文件太大，请上传不超过100MB的文件')
         return redirect(request.url)
         
     if file and allowed_file(file.filename):
