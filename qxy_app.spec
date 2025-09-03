@@ -51,4 +51,8 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='favicon.ico',
+    # 减少临时文件使用
+    onefile=True,
+    # 不创建临时目录，直接解压到内存
+    tempdir=None,
 )

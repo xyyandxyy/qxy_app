@@ -36,38 +36,18 @@ sns.set(font=alibaba_font, font_scale=1)
 app = Flask(__name__)
 app.secret_key = str(uuid.uuid4())  # 为了使用flash消息功能
 
-# 使用从setup_app函数获取的上传文件夹
-# uploads_dir变量来自setup_app函数的返回值
-if uploads_dir:
-    # 如果成功创建了上传目录，使用它
-    upload_folder = uploads_dir
-    print(f"使用setup_app创建的上传文件夹: {upload_folder}")
-else:
-    # 如果setup_app未能创建目录，尝试创建一个备用目录
-    try:
-        # 首先尝试在当前用户目录创建
-        import tempfile
-        upload_folder = os.path.normpath(os.path.join(tempfile.gettempdir(), 'qxy_app_uploads'))
-        os.makedirs(upload_folder, exist_ok=True)
-        print(f"使用备用临时目录作为上传文件夹: {upload_folder}")
-    except Exception as e:
-        # 实在不行就用相对路径
-        upload_folder = os.path.abspath('uploads')
-        os.makedirs(upload_folder, exist_ok=True)
-        print(f"使用相对路径作为上传文件夹: {upload_folder}")
-
-app.config['UPLOAD_FOLDER'] = upload_folder
+# 由于使用内存处理，不再需要上传文件夹配置
 app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'csv'}
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 
-print(f"上传文件夹配置路径: {app.config['UPLOAD_FOLDER']}")
-print(f"上传文件夹是否存在: {os.path.exists(app.config['UPLOAD_FOLDER'])}")
+print("使用内存处理模式，无需上传文件夹")
 print(f"当前工作目录: {os.getcwd()}")
 
 processed_df = None
 column_info = {}
 data_summary = {}
-current_file = None
+current_file_data = None  # 存储文件数据在内存中
+current_filename = None  # 存储原始文件名
 column_id_map = {}  # 列名到ID的映射
 id_column_map = {}  # ID到列名的映射
 
@@ -424,51 +404,51 @@ def get_column_statistics(column):
     
     return stats
 
-def load_and_analyze_excel(file_path):
-    """加载并分析Excel或CSV文件"""
+def load_and_analyze_excel(file_data=None, filename=None, file_path=None):
+    """加载并分析Excel或CSV文件
+    支持从内存数据或文件路径读取
+    """
     global processed_df
     
-    # 标准化路径处理
-    try:
-        # 转换为绝对路径并规范化
-        abs_path = os.path.abspath(file_path)
-        print(f"尝试加载文件：{abs_path}")
-        
-        # 使用pathlib检查文件是否存在
-        path = Path(abs_path)
-        if not path.exists():
-            # 尝试使用os.path再次检查
+    # 确定数据源和文件信息
+    if file_data is not None and filename is not None:
+        # 从内存数据读取
+        print(f"从内存数据加载文件: {filename}")
+        file_ext = os.path.splitext(filename)[1].lower()
+        file_name = filename
+        data_source = file_data
+    elif file_path is not None:
+        # 从文件路径读取（保持向后兼容）
+        try:
+            abs_path = os.path.abspath(file_path)
+            print(f"尝试加载文件：{abs_path}")
+            
             if not os.path.exists(abs_path):
                 print(f"文件不存在: {abs_path}")
                 return False
-            else:
-                print(f"os.path确认文件存在，但Path.exists()失败")
-                # 如果os.path.exists为真但Path.exists为假，使用os.path继续
-                path = abs_path
-    except Exception as e:
-        print(f"路径处理出错: {str(e)}")
+                
+            file_ext = os.path.splitext(file_path)[1].lower()
+            file_name = os.path.basename(file_path)
+            data_source = file_path
+        except Exception as e:
+            print(f"路径处理出错: {str(e)}")
+            return False
+    else:
+        print("错误: 必须提供file_data+filename或file_path参数")
         return False
     
     # 根据文件扩展名决定如何读取
     try:
-        if isinstance(path, str):
-            # 如果path是字符串(路径)，获取文件扩展名
-            _, file_ext = os.path.splitext(path)
-            file_ext = file_ext.lower()
-            file_name = os.path.basename(path)
-        else:
-            # 如果path是Path对象
-            file_ext = path.suffix.lower()
-            file_name = path.name
-            
-        # 确保路径是字符串形式，pandas需要
-        path_str = str(path)
-        
-        print(f"准备读取文件: {path_str}，类型: {file_ext}")
+        print(f"准备读取文件: {file_name}，类型: {file_ext}")
         
         if file_ext == '.xlsx':
             try:
-                df = pd.read_excel(path_str)
+                if isinstance(data_source, bytes):
+                    # 从内存中的字节数据读取
+                    df = pd.read_excel(io.BytesIO(data_source))
+                else:
+                    # 从文件路径读取
+                    df = pd.read_excel(data_source)
                 print(f"成功加载Excel文件: {file_name}")
             except Exception as e:
                 print(f"读取Excel文件失败: {str(e)}")
@@ -483,7 +463,12 @@ def load_and_analyze_excel(file_path):
             for encoding in ['utf-8', 'gbk', 'ISO-8859-1']:
                 for sep in [',', ';', '\t']:
                     try:
-                        df = pd.read_csv(path_str, encoding=encoding, sep=sep)
+                        if isinstance(data_source, bytes):
+                            # 从内存中的字节数据读取
+                            df = pd.read_csv(io.BytesIO(data_source), encoding=encoding, sep=sep)
+                        else:
+                            # 从文件路径读取
+                            df = pd.read_csv(data_source, encoding=encoding, sep=sep)
                         print(f"成功加载CSV文件: {file_name} (编码: {encoding}, 分隔符: {sep})")
                         success = True
                         break
@@ -503,7 +488,7 @@ def load_and_analyze_excel(file_path):
             print(f"不支持的文件类型: {file_ext}")
             return False
     except Exception as e:
-        print(f"处理文件扩展名时出错: {str(e)}")
+        print(f"处理文件时出错: {str(e)}")
         return False
     print(f"原始数据形状: {df.shape}")
     
@@ -535,12 +520,12 @@ def index():
 
 @app.route('/upload', methods=['POST', 'GET'])
 def upload_file():
-    """处理文件上传"""
+    """处理文件上传 - 直接读取到内存中"""
     # 如果是GET请求，重定向到首页
     if request.method == 'GET':
         return redirect(url_for('index'))
         
-    global current_file
+    global current_file_data, current_filename
     
     # 检查是否有文件被上传
     if 'file' not in request.files:
@@ -565,37 +550,32 @@ def upload_file():
         return redirect(request.url)
         
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        # 生成唯一文件名避免覆盖，确保保留文件扩展名
-        base_name, file_ext = os.path.splitext(filename)
-        unique_filename = str(uuid.uuid4()) + file_ext
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        # 获取原始文件名
+        original_filename = file.filename
+        print(f"开始处理文件：{original_filename}")
         
-        # 确保目录存在
-        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
-        
-        # 打印保存路径以便调试
-        print(f"保存文件到：{os.path.abspath(file_path)}")
-        
-        # 保存文件
-        file.save(file_path)
-        
-        # 记录当前文件路径
-        current_file = file_path
-        
-        # 验证文件是否成功保存
-        if os.path.exists(file_path):
-            print(f"文件成功保存：{file_path}")
-        else:
-            print(f"文件保存失败，路径不存在：{file_path}")
-        
-        # 加载并分析上传的Excel文件
-        success = load_and_analyze_excel(file_path)
-        
-        if success:
-            return redirect(url_for('index'))
-        else:
-            flash('文件分析失败，请确保文件格式正确')
+        # 直接读取文件内容到内存
+        try:
+            file_data = file.read()
+            print(f"文件读取到内存成功，大小：{len(file_data)} 字节")
+            
+            # 存储文件数据和文件名
+            current_file_data = file_data
+            current_filename = original_filename
+            
+            # 直接从内存数据加载并分析文件
+            success = load_and_analyze_excel(file_data=file_data, filename=original_filename)
+            
+            if success:
+                print(f"文件分析成功：{original_filename}")
+                return redirect(url_for('index'))
+            else:
+                flash('文件分析失败，请确保文件格式正确')
+                return redirect(request.url)
+                
+        except Exception as e:
+            print(f"读取文件到内存时出错：{str(e)}")
+            flash('文件读取失败，请重试')
             return redirect(request.url)
     else:
         flash('不支持的文件类型，请上传.xlsx或.csv文件')

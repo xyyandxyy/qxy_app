@@ -24,35 +24,12 @@ def setup_app():
         base_dir = getattr(sys, '_MEIPASS', os.path.abspath("."))
         print(f"应用根目录: {base_dir}")
         
-        # 确保uploads文件夹存在（使用绝对路径）
-        uploads_dir = os.path.normpath(os.path.join(base_dir, 'uploads'))
-        print(f"尝试创建上传文件夹: {uploads_dir}")
+        # 由于现在使用内存处理，不再需要上传目录
+        print("使用内存处理模式，无需创建上传目录")
         
-        # 处理可能的权限问题
-        try:
-            os.makedirs(uploads_dir, exist_ok=True)
-            print(f"成功创建/确认上传文件夹: {uploads_dir}")
-        except PermissionError:
-            # 如果无权限在应用目录创建文件夹，尝试在用户临时目录创建
-            import tempfile
-            temp_dir = tempfile.gettempdir()
-            uploads_dir = os.path.normpath(os.path.join(temp_dir, 'qxy_app_uploads'))
-            os.makedirs(uploads_dir, exist_ok=True)
-            print(f"在临时目录创建上传文件夹: {uploads_dir}")
-            
-        # 验证目录是否可写
-        try:
-            test_file = os.path.join(uploads_dir, 'test_write.tmp')
-            with open(test_file, 'w') as f:
-                f.write('test')
-            os.remove(test_file)
-            print(f"上传目录可写: {uploads_dir}")
-        except Exception as e:
-            print(f"警告: 上传目录可能不可写: {str(e)}")
-            
-        # 返回创建的uploads目录路径，供后续使用
-        return resource_path('AlibabaPuHuiTi-3-55-Regular.ttf'), uploads_dir
+        # 只返回字体文件路径
+        return resource_path('AlibabaPuHuiTi-3-55-Regular.ttf'), None
     except Exception as e:
-        print(f"创建上传文件夹时出错: {str(e)}")
+        print(f"设置应用时出错: {str(e)}")
         # 出错时仍然返回字体文件路径
         return resource_path('AlibabaPuHuiTi-3-55-Regular.ttf'), None
