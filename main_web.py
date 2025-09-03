@@ -35,12 +35,23 @@ sns.set(font=alibaba_font, font_scale=1)
 
 app = Flask(__name__)
 app.secret_key = str(uuid.uuid4())  # 为了使用flash消息功能
-app.config['UPLOAD_FOLDER'] = 'uploads'
+
+# 确保上传文件夹路径在打包环境中也能正确工作
+try:
+    # 获取应用程序根目录或临时目录
+    base_dir = getattr(sys, '_MEIPASS', os.path.abspath("."))
+    upload_folder = os.path.join(base_dir, 'uploads')
+except Exception:
+    # 如果获取失败，使用相对路径
+    upload_folder = 'uploads'
+
+app.config['UPLOAD_FOLDER'] = upload_folder
 app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'csv'}
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 
 # 创建上传文件夹
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+print(f"上传文件夹配置路径: {app.config['UPLOAD_FOLDER']}")
 
 processed_df = None
 column_info = {}
@@ -464,9 +475,13 @@ def index():
                          column_info=column_info, 
                          data_summary=data_summary)
 
-@app.route('/upload', methods=['POST'])
+@app.route('/upload', methods=['POST', 'GET'])
 def upload_file():
     """处理文件上传"""
+    # 如果是GET请求，重定向到首页
+    if request.method == 'GET':
+        return redirect(url_for('index'))
+        
     global current_file
     
     # 检查是否有文件被上传

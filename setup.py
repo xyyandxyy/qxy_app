@@ -13,8 +13,15 @@ def resource_path(relative_path):
 
 def setup_app():
     """应用程序启动前的设置"""
-    # 确保uploads文件夹存在
-    os.makedirs('uploads', exist_ok=True)
-    
+    try:
+        # 获取应用程序根目录或临时目录
+        base_dir = getattr(sys, '_MEIPASS', os.path.abspath("."))
+        # 确保uploads文件夹存在（使用绝对路径）
+        uploads_dir = os.path.join(base_dir, 'uploads')
+        os.makedirs(uploads_dir, exist_ok=True)
+        print(f"上传文件夹位置: {uploads_dir}")
+    except Exception as e:
+        print(f"创建上传文件夹时出错: {str(e)}")
+        
     # 返回字体文件路径（相对于应用根目录）
     return resource_path('AlibabaPuHuiTi-3-55-Regular.ttf')
