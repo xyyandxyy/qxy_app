@@ -938,9 +938,9 @@ def main():
     print("启动智能数据分析系统...")
     print("请通过上传功能上传Excel文件进行分析")
     # 自动打开默认浏览器
-    webbrowser.open('http://127.0.0.1:5001')
+    webbrowser.open('http://127.0.0.1:5002')
     # 在生产环境中关闭debug模式
-    app.run(debug=False, host="0.0.0.0", port=5001)
+    app.run(debug=False, host="127.0.0.1", port=5002)
 
 if __name__ == "__main__":
     main()
